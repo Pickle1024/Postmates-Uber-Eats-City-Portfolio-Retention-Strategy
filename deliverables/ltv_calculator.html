@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Postmates LTV Calculator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    margin: 0; padding: 0;
+    background: #f5f6fa;
+    color: #222;
+  }
+  .container { max-width: 1180px; margin: 0 auto; padding: 24px; }
+  h1 { margin: 0 0 4px 0; font-size: 26px; }
+  .subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 0; border-bottom: 2px solid #ddd; }
+  .tab {
+    padding: 10px 20px; cursor: pointer;
+    background: #e9eaf0; border-radius: 8px 8px 0 0;
+    font-weight: 600; font-size: 14px;
+    border: 2px solid #ddd; border-bottom: none;
+    margin-bottom: -2px;
+  }
+  .tab.active { background: #fff; color: #222e63; border-color: #222e63 #222e63 #fff #222e63; }
+  .tab:not(.active) { color: #666; }
+
+  .panel {
+    background: #fff; border: 2px solid #222e63; border-top: none;
+    border-radius: 0 0 8px 8px; padding: 24px;
+  }
+  .panel.hidden { display: none; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+  .section-title {
+    font-size: 14px; font-weight: 700; margin: 18px 0 10px 0;
+    color: #222e63; border-bottom: 2px solid #222e63; padding-bottom: 4px;
+    letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* Aligned input grid: label | input | source-hint */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 105px 130px;
+    gap: 10px 14px;
+    align-items: center;
+  }
+  .input-grid label {
+    font-size: 13px; color: #333; line-height: 1.3;
+  }
+  .input-grid input[type=number] {
+    width: 100%; padding: 6px 8px; font-size: 14px;
+    border: 1px solid #bbb; border-radius: 4px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .input-grid input[type=checkbox] {
+    width: 18px; height: 18px;
+  }
+  .input-grid .source-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 3px;
+    text-align: center; font-weight: 500;
+    line-height: 1.4;
+  }
+  .source-tag.green { background: #e8f5e9; color: #2e7d32; }
+  .source-tag.yellow { background: #fff8e1; color: #b07c00; }
+  .source-tag.red { background: #ffebee; color: #c62828; }
+  .source-tag.gray { background: #eceff1; color: #546e7a; }
+  .input-grid .computed {
+    font-size: 14px; font-weight: 600; color: #222e63;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+
+  .scope-toggle, .tier-toggle { display: flex; gap: 4px; margin-bottom: 14px; }
+  .scope-btn {
+    flex: 1; padding: 8px 12px; cursor: pointer;
+    background: #e9eaf0; border: 1px solid #ccc; border-radius: 6px;
+    font-size: 12px; font-weight: 600; color: #666;
+    text-align: center;
+  }
+  .scope-btn.active { background: #ffa700; color: #fff; border-color: #ffa700; }
+
+  .output-card {
+    background: linear-gradient(180deg, #f9f9fc 0%, #eff0f7 100%);
+    padding: 16px; border-radius: 8px; margin-bottom: 14px;
+    border-left: 4px solid #ffa700;
+  }
+  .output-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .output-value { font-size: 30px; font-weight: 700; color: #222e63; margin-top: 4px; }
+  .output-sub { font-size: 12px; color: #777; margin-top: 4px; }
+
+  .ratio-card {
+    background: #fff;
+    padding: 12px 14px; border-radius: 6px;
+    border: 1px solid #ddd; margin-top: 8px;
+  }
+  .ratio-label { font-size: 12px; color: #555; }
+  .ratio-value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .ratio-value.green { color: #2e7d32; }
+  .ratio-value.amber { color: #ef6c00; }
+  .ratio-value.red { color: #c62828; }
+
+  .breakdown-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .breakdown-table th, .breakdown-table td {
+    padding: 7px 10px; text-align: right;
+    border-bottom: 1px solid #eee;
+    font-variant-numeric: tabular-nums;
+  }
+  .breakdown-table th { background: #f0f1f6; font-weight: 600; }
+  .breakdown-table th:first-child, .breakdown-table td:first-child { text-align: left; }
+
+  canvas { width: 100% !important; height: 220px !important; margin-top: 12px; background: #fafafa; border-radius: 6px; }
+
+  .formula-box {
+    background: #f7f8fc; border-left: 3px solid #222e63;
+    padding: 12px 16px; margin: 14px 0;
+    overflow-x: auto;
+  }
+  .formula-box pre {
+    margin: 0;
+    font-family: "SF Mono", "Monaco", "Consolas", monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #444;
+    white-space: pre;
+  }
+
+  .footnote {
+    font-size: 11.5px; color: #888;
+    margin-top: 16px; padding-top: 12px;
+    border-top: 1px solid #eee;
+    line-height: 1.5;
+  }
+
+  .legend {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 11px; margin-bottom: 12px;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 4px; }
+  .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Postmates LTV Calculator</h1>
+  <div class="subtitle">A decision-driven LTV framework demo. All inputs editable; defaults from our 13-month case data (Jun-22 → Jun-23). Color tags show data confidence: green = case data, yellow = aggregate/proxy, red = placeholder.</div>
+
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#e8f5e9;"></span> case data (defensible)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#fff8e1;"></span> aggregate / proxy</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#ffebee;"></span> placeholder (needs Uber data)</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#eceff1;"></span> standard / industry default</span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="user">User LTV</div>
+    <div class="tab" data-tab="merchant">Merchant LTV</div>
+  </div>
+
+  <!-- ==================== USER LTV TAB ==================== -->
+  <div class="panel" id="panel-user">
+    <div class="grid">
+      <!-- INPUTS -->
+      <div>
+        <div class="section-title">Decision context — what scope?</div>
+        <div class="scope-toggle" id="user-scope-toggle">
+          <div class="scope-btn active" data-scope="narrow">PM-only (conservative)</div>
+          <div class="scope-btn" data-scope="cross">PM + cross-platform</div>
+        </div>
+
+        <div class="section-title">PM behavior</div>
+        <div class="input-grid">
+          <label>Trips per ordering user per month <span style="color:#888;">(AE + NE denominator)</span></label>
+          <input type="number" id="u_trips" value="3.23" step="0.1" min="0">
+          <span class="source-tag yellow">aggregate (case)</span>
+
+          <label>AOV — basket per order ($)</label>
+          <input type="number" id="u_aov" value="32.57" step="0.5" min="0">
+          <span class="source-tag yellow">aggregate (case)</span>
+
+          <label>PM Net Revenue take rate (%)</label>
+          <input type="number" id="u_take" value="12.9" step="0.1" min="0">
+          <span class="source-tag green">case data</span>
+        </div>
+
+        <div class="section-title">Retention curve</div>
+        <div class="input-grid">
+          <label>Monthly retention rate (%)</label>
+          <input type="number" id="u_ret" value="91.1" step="0.5" min="0" max="100">
+          <span class="source-tag yellow">our flow proxy</span>
+
+          <label>Implied 12-mo retention (computed)</label>
+          <span class="computed" id="u_ret_m12">32.5%</span>
+          <span class="source-tag gray">computed</span>
+        </div>
+
+        <div class="section-title">Subscription (Uber One)</div>
+        <div class="input-grid">
+          <label>User is Uber One subscriber?</label>
+          <input type="checkbox" id="u_is_sub" style="justify-self:end;">
+          <span class="source-tag gray">toggle</span>
+
+          <label>Sub fee per month ($) <span style="color:#888;">(0 if free via partner)</span></label>
+          <input type="number" id="u_sub_fee" value="9.99" step="0.5" min="0" disabled>
+          <span class="source-tag gray">Uber One price</span>
+
+          <label>Subscription discount (% of monthly GB) <span style="color:#888;">(free delivery + discounts to subscribers)</span></label>
+          <input type="number" id="u_sub_disc" value="2.1" step="0.1" min="0" max="20" disabled>
+          <span class="source-tag green">PM case data 2.11%</span>
+
+          <label>Sub frequency lift (× trips)</label>
+          <input type="number" id="u_sub_lift" value="1.8" step="0.1" min="1" max="5" disabled>
+          <span class="source-tag yellow">DD industry ~2×</span>
+        </div>
+
+        <div class="section-title" id="cross-section-title" style="display:none;">Cross-platform attribution</div>
+        <div class="input-grid" id="cross-inputs" style="display:none;">
+          <label>UE attach rate — % of PM users also active on UE</label>
+          <input type="number" id="u_ue_attach" value="30" step="5" min="0" max="100">
+          <span class="source-tag red">placeholder</span>
+
+          <label>UE NetRev per attached user ($/mo)</label>
+          <input type="number" id="u_ue_rev" value="10" step="1" min="0">
+          <span class="source-tag red">placeholder</span>
+
+          <label>Rides attach rate (%)</label>
+          <input type="number" id="u_rides_attach" value="15" step="5" min="0" max="100">
+          <span class="source-tag red">placeholder</span>
+
+          <label>Rides NetRev per attached user ($/mo)</label>
+          <input type="number" id="u_rides_rev" value="8" step="1" min="0">
+          <span class="source-tag red">placeholder</span>
+        </div>
+
+        <div class="section-title">Time horizon & discount rate</div>
+        <div class="input-grid">
+          <label>Time horizon (months)</label>
+          <input type="number" id="u_horizon" value="24" step="1" min="3" max="60">
+          <span class="source-tag gray">industry default</span>
+
+          <label>Annual discount rate (%)</label>
+          <input type="number" id="u_disc" value="12" step="0.5" min="0" max="30">
+          <span class="source-tag gray">cost-of-capital</span>
+        </div>
+
+        <div class="section-title">CAC sanity check</div>
+        <div class="input-grid">
+          <label>Estimated total CAC ($)</label>
+          <input type="number" id="u_cac" value="50" step="5" min="0">
+          <span class="source-tag yellow">industry $45-85</span>
+        </div>
+      </div>
+
+      <!-- OUTPUTS -->
+      <div>
+        <div class="section-title">Headline output</div>
+        <div class="output-card">
+          <div class="output-label" id="u_ltv_title">24-mo NPV LTV per active PM eater</div>
+          <div class="output-value" id="u_ltv">$—</div>
+          <div class="output-sub" id="u_ltv_sub">—</div>
+        </div>
+
+        <div class="ratio-card">
+          <div class="ratio-label">LTV : CAC ratio (industry safe target = 3:1)</div>
+          <div class="ratio-value" id="u_ltv_cac">—</div>
+        </div>
+
+        <div class="section-title">Formula</div>
+        <div class="formula-box">
+<pre>LTV = Σ (t = 1 to N) [ MonthlyNetRev × MonthlyRetention^t × (1 + r/12)^−t ]
+
+  where:
+    MonthlyGB     = Trips × FrequencyLift × AOV
+                    (FrequencyLift = 1 if non-subscriber, 1.8× default if subscriber)
+
+    MonthlyNetRev = (MonthlyGB × TakeRate)               ← PM commission
+                  + (SubFee − SubDiscountPct × MonthlyGB) ← if subscriber: fee − sub discount
+                  + Σ AttachRate × NetRevContribution     ← if cross-platform scope
+
+    r = annual discount rate (cost-of-capital)
+    N = horizon (months)</pre>
+        </div>
+
+        <div class="section-title">Per-month breakdown</div>
+        <table class="breakdown-table">
+          <tr><th>Component</th><th>Per active month</th><th>NPV over horizon</th></tr>
+          <tr><td>PM standalone NetRev</td><td id="u_pm_monthly">—</td><td id="u_pm_ltv">—</td></tr>
+          <tr id="u_sub_row" style="display:none;"><td>Subscription net</td><td id="u_sub_monthly">—</td><td id="u_sub_ltv">—</td></tr>
+          <tr id="u_ue_row" style="display:none;"><td>UE cross-platform</td><td id="u_ue_monthly">—</td><td id="u_ue_ltv">—</td></tr>
+          <tr id="u_rides_row" style="display:none;"><td>Rides cross-platform</td><td id="u_rides_monthly">—</td><td id="u_rides_ltv">—</td></tr>
+          <tr style="font-weight:700;background:#fafbff;"><td>Total LTV</td><td id="u_total_monthly">—</td><td id="u_total_ltv">—</td></tr>
+        </table>
+
+        <div class="section-title">Decay curve — monthly NPV contribution</div>
+        <canvas id="u_chart"></canvas>
+
+        <div class="footnote">
+          <strong>Key caveats this calculator surfaces:</strong>
+          (1) "Monthly retention 91.1%" is a flow proxy [Active(t) / (Active(t-1) + New(t-1))], not true cohort retention — mixes sub and non-sub users; production version needs cohort-level user data.
+          (2) Cross-platform attach rates and per-attach NetRev are placeholders — real numbers require user-level cross-app join (in metrics-to-collect).
+          (3) Trips/AOV are aggregates; sub members and high-LTV cohorts likely much higher; Maintain-tier cohorts likely lower. Production version segments by cohort.
+          (4) Take rate 12.9% is PM aggregate — varies by merchant tier (Lite 15% → Net Rev higher; Plus/Premium chains contribute different mix).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MERCHANT LTV TAB ==================== -->
+  <div class="panel hidden" id="panel-merchant">
+    <div class="grid">
+      <div>
+        <div class="section-title">Merchant tier — sets defaults</div>
+        <div class="tier-toggle" id="m-tier-toggle">
+          <div class="scope-btn active" data-tier="smb">SMB / Independent</div>
+          <div class="scope-btn" data-tier="mid">Mid-market</div>
+          <div class="scope-btn" data-tier="ent">Enterprise / Chain</div>
+        </div>
+
+        <div class="section-title">Order volume & economics</div>
+        <div class="input-grid">
+          <label>Monthly orders fulfilled by this merchant</label>
+          <input type="number" id="m_orders" value="200" step="10" min="0">
+          <span class="source-tag yellow">tier-typical</span>
+
+          <label>Average order value ($)</label>
+          <input type="number" id="m_aov" value="28" step="1" min="0">
+          <span class="source-tag yellow">tier-typical</span>
+
+          <label>Commission rate (%)</label>
+          <input type="number" id="m_commission" value="15" step="1" min="0" max="50">
+          <span class="source-tag green" id="m_commission_hint">Lite 15%</span>
+        </div>
+
+        <div class="section-title">Additional revenue streams</div>
+        <div class="input-grid">
+          <label>Monthly ad spend by merchant ($) <span style="color:#888;">(sponsored placement etc.)</span></label>
+          <input type="number" id="m_ads" value="50" step="10" min="0">
+          <span class="source-tag yellow">tier-typical</span>
+
+          <label>Monthly other fees / service ($)</label>
+          <input type="number" id="m_other" value="0" step="10" min="0">
+          <span class="source-tag gray">optional</span>
+        </div>
+
+        <div class="section-title">Merchant retention</div>
+        <div class="input-grid">
+          <label>Monthly merchant retention rate (%)</label>
+          <input type="number" id="m_churn" value="97.5" step="0.5" min="50" max="100">
+          <span class="source-tag yellow">SMB ~95-98%</span>
+
+          <label>Implied 12-mo merchant retention (computed)</label>
+          <span class="computed" id="m_ret_m12">73.7%</span>
+          <span class="source-tag gray">computed</span>
+        </div>
+
+        <div class="section-title">Time horizon & discount rate</div>
+        <div class="input-grid">
+          <label>Time horizon (months)</label>
+          <input type="number" id="m_horizon" value="24" step="1" min="3" max="60">
+          <span class="source-tag gray">industry default</span>
+
+          <label>Annual discount rate (%)</label>
+          <input type="number" id="m_disc" value="12" step="0.5" min="0" max="30">
+          <span class="source-tag gray">cost-of-capital</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Headline output</div>
+        <div class="output-card">
+          <div class="output-label">24-mo NPV LTV per merchant (Uber-side NetRev)</div>
+          <div class="output-value" id="m_ltv">$—</div>
+          <div class="output-sub" id="m_ltv_sub">—</div>
+        </div>
+
+        <div class="section-title">Formula</div>
+        <div class="formula-box">
+<pre>MerchantLTV = Σ (t = 1 to N) [ MonthlyNetRev × MonthlyRetention^t × (1 + r/12)^−t ]
+
+  where:
+    MonthlyNetRev = (Orders × AOV × Commission)   ← commission revenue
+                  + AdSpend                        ← merchant ad spend
+                  + OtherFees                      ← service fees
+
+    MonthlyRetention = 1 − MonthlyChurn
+    r = annual discount rate
+    N = horizon (months)</pre>
+        </div>
+
+        <div class="section-title">Revenue stream breakdown</div>
+        <table class="breakdown-table">
+          <tr><th>Stream</th><th>Per month</th><th>NPV over horizon</th></tr>
+          <tr><td>Commission on orders</td><td id="m_comm_monthly">—</td><td id="m_comm_ltv">—</td></tr>
+          <tr><td>Ad spend</td><td id="m_ads_monthly">—</td><td id="m_ads_ltv">—</td></tr>
+          <tr><td>Other fees</td><td id="m_other_monthly">—</td><td id="m_other_ltv">—</td></tr>
+          <tr style="font-weight:700;background:#fafbff;"><td>Total LTV</td><td id="m_total_monthly">—</td><td id="m_total_ltv">—</td></tr>
+        </table>
+
+        <div class="section-title">Decay curve — monthly NPV contribution</div>
+        <canvas id="m_chart"></canvas>
+
+        <div class="footnote">
+          <strong>Important:</strong> Merchant LTV uses a different attribution lens than User LTV — same revenue dollar shows up in both views (marketplace economics). <em>Don't add User LTV and Merchant LTV together.</em>
+          Tier defaults reflect Uber Eats merchant pricing 2021-23: SMB / independents typically Lite (15%); mid-market often Plus (25%, more visibility); enterprise chains often Premium (30%, ad spend match).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footnote" style="margin-top: 16px;">
+    Built for Uber S&O Postmates case interview. Single-file HTML, vanilla JS, no external dependencies. Production version would plug into Uber's user-level orders join + cohort retention curves; this prototype demonstrates the framework's mechanics.
+  </div>
+</div>
+
+<script>
+// ============= TAB SWITCHING =============
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    const target = t.dataset.tab;
+    document.getElementById('panel-user').classList.toggle('hidden', target !== 'user');
+    document.getElementById('panel-merchant').classList.toggle('hidden', target !== 'merchant');
+  });
+});
+
+// ============= USER LTV =============
+let userScope = 'narrow';
+document.querySelectorAll('#user-scope-toggle .scope-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#user-scope-toggle .scope-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    userScope = b.dataset.scope;
+    const showCross = userScope === 'cross';
+    document.getElementById('cross-section-title').style.display = showCross ? 'block' : 'none';
+    document.getElementById('cross-inputs').style.display = showCross ? 'grid' : 'none';
+    document.getElementById('u_ue_row').style.display = showCross ? '' : 'none';
+    document.getElementById('u_rides_row').style.display = showCross ? '' : 'none';
+    computeUser();
+  });
+});
+
+document.getElementById('u_is_sub').addEventListener('change', e => {
+  const isSub = e.target.checked;
+  ['u_sub_fee','u_sub_disc','u_sub_lift'].forEach(id => {
+    document.getElementById(id).disabled = !isSub;
+  });
+  document.getElementById('u_sub_row').style.display = isSub ? '' : 'none';
+  computeUser();
+});
+
+function fmt(v, dec=0) {
+  if (isNaN(v) || !isFinite(v)) return '—';
+  return '$' + v.toLocaleString('en-US', { maximumFractionDigits: dec, minimumFractionDigits: dec });
+}
+
+function computeUser() {
+  const trips = parseFloat(document.getElementById('u_trips').value) || 0;
+  const aov = parseFloat(document.getElementById('u_aov').value) || 0;
+  const take = (parseFloat(document.getElementById('u_take').value) || 0) / 100;
+  const ret = (parseFloat(document.getElementById('u_ret').value) || 0) / 100;
+  const horizon = parseInt(document.getElementById('u_horizon').value) || 24;
+  const disc = (parseFloat(document.getElementById('u_disc').value) || 0) / 100;
+  const cac = parseFloat(document.getElementById('u_cac').value) || 0;
+
+  document.getElementById('u_ret_m12').textContent = (Math.pow(ret, 12) * 100).toFixed(1) + '%';
+
+  // Subscription mods
+  const isSub = document.getElementById('u_is_sub').checked;
+  const subFee = isSub ? (parseFloat(document.getElementById('u_sub_fee').value) || 0) : 0;
+  const subDiscPct = isSub ? (parseFloat(document.getElementById('u_sub_disc').value) || 0) / 100 : 0;
+  const subLift = isSub ? (parseFloat(document.getElementById('u_sub_lift').value) || 1) : 1;
+
+  const effectiveTrips = trips * subLift;
+  const monthlyGB = effectiveTrips * aov;
+  const pmCommissionMonthly = monthlyGB * take;
+  const subDiscountCost = monthlyGB * subDiscPct;
+  const subNet = subFee - subDiscountCost; // can be negative
+  const pmMonthly = pmCommissionMonthly;
+
+  // Cross-platform
+  let ueAttach = 0, ueRev = 0, ridesAttach = 0, ridesRev = 0;
+  if (userScope === 'cross') {
+    ueAttach = (parseFloat(document.getElementById('u_ue_attach').value) || 0) / 100;
+    ueRev = parseFloat(document.getElementById('u_ue_rev').value) || 0;
+    ridesAttach = (parseFloat(document.getElementById('u_rides_attach').value) || 0) / 100;
+    ridesRev = parseFloat(document.getElementById('u_rides_rev').value) || 0;
+  }
+  const ueMonthly = ueAttach * ueRev;
+  const ridesMonthly = ridesAttach * ridesRev;
+
+  const totalMonthly = pmMonthly + (isSub ? subNet : 0) + ueMonthly + ridesMonthly;
+
+  // NPV
+  let pmLTV = 0, subLTV = 0, ueLTV = 0, ridesLTV = 0;
+  const decayValues = [];
+  for (let t = 1; t <= horizon; t++) {
+    const survival = Math.pow(ret, t);
+    const discFactor = Math.pow(1 + disc/12, -t);
+    const factor = survival * discFactor;
+    pmLTV += pmMonthly * factor;
+    if (isSub) subLTV += subNet * factor;
+    ueLTV += ueMonthly * factor;
+    ridesLTV += ridesMonthly * factor;
+    decayValues.push(totalMonthly * factor);
+  }
+  const totalLTV = pmLTV + (isSub ? subLTV : 0) + ueLTV + ridesLTV;
+
+  // Display
+  document.getElementById('u_ltv').textContent = fmt(totalLTV, 0);
+  document.getElementById('u_ltv_sub').textContent =
+    `${horizon}-mo NPV @ ${(disc*100).toFixed(0)}% discount; scope: ${userScope === 'narrow' ? 'PM-only' : 'PM + cross-platform'}${isSub ? '; subscriber' : ''}`;
+
+  document.getElementById('u_pm_monthly').textContent = fmt(pmMonthly, 2);
+  document.getElementById('u_pm_ltv').textContent = fmt(pmLTV, 0);
+  document.getElementById('u_sub_monthly').textContent = fmt(subNet, 2);
+  document.getElementById('u_sub_ltv').textContent = fmt(subLTV, 0);
+  document.getElementById('u_ue_monthly').textContent = fmt(ueMonthly, 2);
+  document.getElementById('u_ue_ltv').textContent = fmt(ueLTV, 0);
+  document.getElementById('u_rides_monthly').textContent = fmt(ridesMonthly, 2);
+  document.getElementById('u_rides_ltv').textContent = fmt(ridesLTV, 0);
+  document.getElementById('u_total_monthly').textContent = fmt(totalMonthly, 2);
+  document.getElementById('u_total_ltv').textContent = fmt(totalLTV, 0);
+
+  // LTV:CAC
+  const ratio = cac > 0 ? totalLTV / cac : 0;
+  const ratioElem = document.getElementById('u_ltv_cac');
+  if (cac <= 0) {
+    ratioElem.textContent = '—';
+    ratioElem.className = 'ratio-value';
+  } else {
+    ratioElem.textContent = ratio.toFixed(1) + ' : 1';
+    if (ratio >= 3) ratioElem.className = 'ratio-value green';
+    else if (ratio >= 1.5) ratioElem.className = 'ratio-value amber';
+    else ratioElem.className = 'ratio-value red';
+  }
+
+  drawChart('u_chart', decayValues, '#ffa700');
+}
+
+['u_trips','u_aov','u_take','u_ret','u_horizon','u_disc','u_ue_attach','u_ue_rev','u_rides_attach','u_rides_rev','u_cac','u_sub_fee','u_sub_disc','u_sub_lift'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeUser);
+});
+
+// ============= MERCHANT LTV =============
+// Merchant tier defaults — note: input is retention %, not churn (for consistency with User tab)
+const TIER_DEFAULTS = {
+  smb: { commission: 15, ads: 50, retention: 97.5, orders: 200, aov: 28, hint: 'Lite 15%' },
+  mid: { commission: 25, ads: 250, retention: 98.0, orders: 800, aov: 30, hint: 'Plus 25%' },
+  ent: { commission: 30, ads: 1500, retention: 99.2, orders: 4000, aov: 22, hint: 'Premium 30%' },
+};
+document.querySelectorAll('#m-tier-toggle .scope-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#m-tier-toggle .scope-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    const t = TIER_DEFAULTS[b.dataset.tier];
+    document.getElementById('m_orders').value = t.orders;
+    document.getElementById('m_aov').value = t.aov;
+    document.getElementById('m_commission').value = t.commission;
+    document.getElementById('m_ads').value = t.ads;
+    document.getElementById('m_churn').value = t.retention; // input now holds retention %
+    document.getElementById('m_commission_hint').textContent = t.hint;
+    computeMerchant();
+  });
+});
+
+function computeMerchant() {
+  const orders = parseFloat(document.getElementById('m_orders').value) || 0;
+  const aov = parseFloat(document.getElementById('m_aov').value) || 0;
+  const commission = (parseFloat(document.getElementById('m_commission').value) || 0) / 100;
+  const ads = parseFloat(document.getElementById('m_ads').value) || 0;
+  const other = parseFloat(document.getElementById('m_other').value) || 0;
+  // Input is now retention %, churn = 1 − retention
+  const retention = (parseFloat(document.getElementById('m_churn').value) || 0) / 100;
+  const churn = 1 - retention;
+  const horizon = parseInt(document.getElementById('m_horizon').value) || 24;
+  const disc = (parseFloat(document.getElementById('m_disc').value) || 0) / 100;
+
+  const survival = retention;
+  document.getElementById('m_ret_m12').textContent = (Math.pow(survival, 12) * 100).toFixed(1) + '%';
+
+  const commissionMonthly = orders * aov * commission;
+  const adsMonthly = ads;
+  const otherMonthly = other;
+  const totalMonthly = commissionMonthly + adsMonthly + otherMonthly;
+
+  let commLTV = 0, adsLTV = 0, otherLTV = 0;
+  const decayValues = [];
+  for (let t = 1; t <= horizon; t++) {
+    const surv = Math.pow(survival, t);
+    const discFactor = Math.pow(1 + disc/12, -t);
+    const factor = surv * discFactor;
+    commLTV += commissionMonthly * factor;
+    adsLTV += adsMonthly * factor;
+    otherLTV += otherMonthly * factor;
+    decayValues.push(totalMonthly * factor);
+  }
+  const totalLTV = commLTV + adsLTV + otherLTV;
+
+  document.getElementById('m_ltv').textContent = fmt(totalLTV, 0);
+  document.getElementById('m_ltv_sub').textContent =
+    `${horizon}-mo NPV @ ${(disc*100).toFixed(0)}%; ${(retention*100).toFixed(1)}%/mo retention → ${(Math.pow(survival,12)*100).toFixed(0)}% 12-mo retained`;
+
+  document.getElementById('m_comm_monthly').textContent = fmt(commissionMonthly, 0);
+  document.getElementById('m_comm_ltv').textContent = fmt(commLTV, 0);
+  document.getElementById('m_ads_monthly').textContent = fmt(adsMonthly, 0);
+  document.getElementById('m_ads_ltv').textContent = fmt(adsLTV, 0);
+  document.getElementById('m_other_monthly').textContent = fmt(otherMonthly, 0);
+  document.getElementById('m_other_ltv').textContent = fmt(otherLTV, 0);
+  document.getElementById('m_total_monthly').textContent = fmt(totalMonthly, 0);
+  document.getElementById('m_total_ltv').textContent = fmt(totalLTV, 0);
+
+  drawChart('m_chart', decayValues, '#3a7d44');
+}
+
+['m_orders','m_aov','m_commission','m_ads','m_other','m_churn','m_horizon','m_disc'].forEach(id => {
+  document.getElementById(id).addEventListener('input', computeMerchant);
+});
+
+// ============= CANVAS BAR CHART =============
+function drawChart(canvasId, values, color) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth;
+  const cssH = canvas.clientHeight;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const padL = 50, padR = 12, padT = 14, padB = 26;
+  const w = cssW - padL - padR;
+  const h = cssH - padT - padB;
+  const maxVal = Math.max(...values, 1);
+  const barW = w / values.length;
+
+  // grid
+  ctx.strokeStyle = '#eee';
+  ctx.fillStyle = '#888';
+  ctx.font = '10px -apple-system, sans-serif';
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (h * i / 4);
+    ctx.beginPath();
+    ctx.moveTo(padL, y); ctx.lineTo(padL + w, y);
+    ctx.stroke();
+    const val = maxVal * (1 - i/4);
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + val.toFixed(0), padL - 4, y + 3);
+  }
+
+  // bars
+  ctx.fillStyle = color;
+  values.forEach((v, i) => {
+    const barH = (v / maxVal) * h;
+    const x = padL + i * barW;
+    const y = padT + h - barH;
+    ctx.fillRect(x + 1, y, Math.max(barW - 2, 1), barH);
+  });
+
+  // x labels
+  ctx.fillStyle = '#666';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < values.length; i += Math.max(1, Math.floor(values.length / 6))) {
+    const x = padL + (i + 0.5) * barW;
+    ctx.fillText('M' + (i + 1), x, padT + h + 14);
+  }
+  ctx.fillText('M' + values.length, padL + (values.length - 0.5) * barW, padT + h + 14);
+}
+
+// init
+computeUser();
+computeMerchant();
+window.addEventListener('resize', () => { computeUser(); computeMerchant(); });
+</script>
+
+</body>
+</html>

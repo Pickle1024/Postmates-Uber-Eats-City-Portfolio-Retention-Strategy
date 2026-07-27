@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Postmates DIM City Playbook — Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #f5f6fa; color: #222; }
+  .container { max-width: 1340px; margin: 0 auto; padding: 24px; }
+  h1 { margin: 0 0 8px 0; font-size: 30px; }
+  .subtitle { color: #555; font-size: 16px; margin-bottom: 24px; line-height: 1.5; }
+  .panel { background: #fff; border-radius: 10px; padding: 22px 26px; margin-bottom: 22px; border: 1px solid #ddd; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+  .panel-title { font-size: 16px; font-weight: 700; color: #222e63; margin: 0 0 14px 0; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 8px; border-bottom: 2px solid #222e63; }
+  .panel-subtitle { font-size: 14px; color: #555; margin-top: -6px; margin-bottom: 14px; }
+
+  .playbook-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .playbook-table th, .playbook-table td { padding: 14px 16px; text-align: left; border-bottom: 1px solid #eee; vertical-align: top; }
+  .playbook-table th { background: #f7f8fc; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: #555; }
+  .playbook-table td.tier-cell { width: 130px; }
+  .playbook-table td.rule-cell { width: 240px; font-size: 13px; }
+  .playbook-table td.cities-cell { width: 380px; font-size: 13px; line-height: 1.7; }
+  .playbook-table td.strategy-cell { font-size: 13.5px; line-height: 1.55; }
+  .tier-tag { display: inline-block; padding: 6px 14px; border-radius: 5px; font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+  .tier-tag.defend { background: #2e7d32; }
+  .tier-tag.investigate { background: #c62828; }
+  .tier-tag.maintain { background: #b07c00; }
+  .tier-tag.migrate { background: #546e7a; }
+  .tier-count-inline { font-size: 12px; color: #666; font-weight: 600; }
+  .city-pill { display: inline-block; padding: 3px 9px; margin-right: 4px; margin-bottom: 4px; background: #eef0f7; border-radius: 4px; font-weight: 600; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .city-pill.key { background: #fff5dc; color: #b07c00; border: 1px solid #e6c98a; }
+
+  .rationale-box { background: #f7f8fc; border-left: 4px solid #222e63; padding: 14px 18px; margin-top: 14px; font-size: 13px; line-height: 1.6; color: #444; }
+  .rationale-box strong { color: #222e63; }
+
+  .filter-bar { display: flex; gap: 18px; align-items: center; margin-bottom: 14px; padding: 12px 16px; background: #f7f8fc; border-radius: 8px; flex-wrap: wrap; }
+  .filter-bar > label { font-size: 13px; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 8px 16px; cursor: pointer; border-radius: 22px; font-size: 14px; font-weight: 600; border: 2px solid; user-select: none; transition: all 0.15s; background: #fff; }
+  .chip:hover { opacity: 0.85; }
+
+  /* === Chart 1 zone chip colors === */
+  .chip.chart1-bothhealthy   { color: #1976D2; border-color: #1976D2; }
+  .chip.chart1-uedriven      { color: #06C167; border-color: #06C167; }
+  .chip.chart1-pmdriven      { color: #1A1A1A; border-color: #1A1A1A; }
+  .chip.chart1-leakage       { color: #E53935; border-color: #E53935; }
+  .chip.chart1-bothhealthy.active   { background: #1976D2; color: #fff; }
+  .chip.chart1-uedriven.active      { background: #06C167; color: #fff; }
+  .chip.chart1-pmdriven.active      { background: #1A1A1A; color: #fff; }
+  .chip.chart1-leakage.active       { background: #E53935; color: #fff; }
+
+  /* === Chart 2 DIM tier chip colors === */
+  .chip.dim-defend      { color: #2e7d32; border-color: #2e7d32; }
+  .chip.dim-investigate { color: #c62828; border-color: #c62828; }
+  .chip.dim-maintain    { color: #b07c00; border-color: #b07c00; }
+  .chip.dim-migrate     { color: #546e7a; border-color: #546e7a; }
+  .chip.dim-defend.active      { background: #2e7d32; color: #fff; }
+  .chip.dim-investigate.active { background: #c62828; color: #fff; }
+  .chip.dim-maintain.active    { background: #b07c00; color: #fff; }
+  .chip.dim-migrate.active     { background: #546e7a; color: #fff; }
+
+  .scatter-container { position: relative; }
+  .scatter-svg { width: 100%; height: 660px; display: block; background: #fafbff; border-radius: 8px; }
+  #tooltip { position: absolute; pointer-events: none; background: rgba(34, 46, 99, 0.97); color: #fff; padding: 14px 18px; border-radius: 6px; font-size: 13px; line-height: 1.6; box-shadow: 0 4px 14px rgba(0,0,0,0.25); display: none; z-index: 100; max-width: 290px; }
+  #tooltip .city-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  #tooltip .row { display: flex; justify-content: space-between; gap: 14px; }
+  #tooltip .label { color: #aab; }
+
+  .table-container { max-height: 380px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; }
+  table.detail { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  table.detail th, table.detail td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #eee; }
+  table.detail th:first-child, table.detail td:first-child { text-align: left; font-weight: 600; }
+  table.detail th { background: #f0f1f6; font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 10; }
+  table.detail th:hover { background: #e3e6f0; }
+  table.detail th.sorted::after { content: " ↓"; color: #222e63; }
+  table.detail th.sorted-asc::after { content: " ↑"; color: #222e63; }
+  table.detail tr:hover { background: #fafbff; }
+  table.detail tr.tier-defend td:nth-child(2) { color: #2e7d32; font-weight: 600; }
+  table.detail tr.tier-investigate td:nth-child(2) { color: #c62828; font-weight: 600; }
+  table.detail tr.tier-maintain td:nth-child(2) { color: #b07c00; font-weight: 600; }
+  table.detail tr.tier-migrate td:nth-child(2) { color: #546e7a; }
+
+  .footnote { font-size: 12px; color: #888; margin-top: 14px; padding-top: 10px; border-top: 1px solid #eee; line-height: 1.5; }
+
+  .reveal-hint { font-size: 13px; color: #888; font-style: italic; margin-top: 6px; }
+  .bubble-size-note { font-size: 13px; color: #555; font-style: italic; text-align: right; margin-top: 8px; padding-right: 4px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>DIM City Playbook — 44 cities, 4 strategic tiers</h1>
+  <div class="subtitle">
+    Both charts anchored on US food-delivery <strong>industry baseline ~11% YoY (Bloomberg 2022-23)</strong>. Chart 1 = ecosystem health (PM growth × UE growth). Chart 2 = DIM tier playbook (PM share × combined growth). <em>Click chips above each chart to reveal cities.</em>
+  </div>
+
+  <!-- Chart 1: PM YoY × UE YoY (4 zones, branded colors) -->
+  <div class="panel">
+    <div class="panel-title">Chart 1 — Brand-level health: PM growth × UE growth per city</div>
+    <div class="panel-subtitle">
+      Four zones, each anchored to 11% industry baseline:
+      <strong style="color:#1976D2;">Both Healthy</strong> (both ≥ 11%) — no leakage.
+      <strong style="color:#06C167;">UE-Driven</strong> (UE ≥ 11%, PM < 11%) — UE outperforms industry, PM weaker.
+      <strong style="color:#1A1A1A;">PM-Driven</strong> (UE < 11%, PM ≥ 11%) — PM outperforms, UE weak (rare).
+      <strong style="color:#E53935;">Leakage</strong> (UE < 11%, PM < 11%) — both underperforming, Uber losing share.
+    </div>
+    <div class="filter-bar">
+      <label>Reveal zones</label>
+      <div class="chips" id="chart1-chips">
+        <div class="chip chart1-bothhealthy" data-zone="BothHealthy">Both Healthy (7)</div>
+        <div class="chip chart1-uedriven" data-zone="UEDriven">UE-Driven (26)</div>
+        <div class="chip chart1-pmdriven" data-zone="PMDriven">PM-Driven (2)</div>
+        <div class="chip chart1-leakage" data-zone="Leakage">Leakage (9)</div>
+      </div>
+    </div>
+    <div class="scatter-container">
+      <svg id="scatter-uepm" class="scatter-svg" viewBox="0 0 1300 660" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="bubble-size-note">Bubble size = Combined GB (Jun-22)</div>
+    <div class="reveal-hint">Click a chip above to reveal cities in that zone.</div>
+  </div>
+
+  <!-- Chart 2: PM share × Combined YoY (DIM tiers) -->
+  <div class="panel">
+    <div class="panel-title">Chart 2 — DIM tier positioning: PM share × combined Uber growth</div>
+    <div class="panel-subtitle">
+      DIM-tier visualization. Bubble color matches the tier color in the playbook table above.
+    </div>
+    <div class="filter-bar">
+      <label>Reveal tiers</label>
+      <div class="chips" id="chart2-chips">
+        <div class="chip dim-defend" data-tier="Defend">Defend (2)</div>
+        <div class="chip dim-investigate" data-tier="Investigate">Investigate (14)</div>
+        <div class="chip dim-maintain" data-tier="Maintain">Maintain (11)</div>
+        <div class="chip dim-migrate" data-tier="Migrate">Migrate (17)</div>
+      </div>
+    </div>
+    <div class="scatter-container">
+      <svg id="scatter-dim" class="scatter-svg" viewBox="0 0 1300 660" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="bubble-size-note">Bubble size = PM GB (Jun-22)</div>
+    <div class="reveal-hint">Click a chip above to reveal cities in that tier.</div>
+  </div>
+
+  <!-- Combined Playbook Table -->
+  <div class="panel">
+    <div class="panel-title">DIM playbook — definitions, cities, and strategic actions</div>
+    <table class="playbook-table">
+      <thead>
+        <tr>
+          <th class="tier-cell">Tier</th>
+          <th class="rule-cell">Rule</th>
+          <th class="cities-cell">Cities in this tier</th>
+          <th class="strategy-cell">Strategic action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="tier-cell"><span class="tier-tag defend">DEFEND</span><br><span class="tier-count-inline">2 cities</span></td>
+          <td class="rule-cell">PM share ≥ 20% <strong>AND</strong> combined Uber YoY ≥ +11%</td>
+          <td class="cities-cell" id="defend-cities"></td>
+          <td class="strategy-cell"><strong>Both brands invest.</strong> Truly winning markets — PM meaningful AND Uber outpacing industry.</td>
+        </tr>
+        <tr>
+          <td class="tier-cell"><span class="tier-tag investigate">INVESTIGATE</span><br><span class="tier-count-inline">14 cities</span></td>
+          <td class="rule-cell">Combined Uber YoY < +11% <strong>AND</strong> PM share ≥ 5%</td>
+          <td class="cities-cell" id="investigate-cities"></td>
+          <td class="strategy-cell"><strong>1+1>2 — both brands needed to win back share.</strong> Uber underperforming industry; PM differentiates while UE recovers, jointly fighting DD. Includes <strong>L2 (LA)</strong>.</td>
+        </tr>
+        <tr>
+          <td class="tier-cell"><span class="tier-tag maintain">MAINTAIN</span><br><span class="tier-count-inline">11 cities</span></td>
+          <td class="rule-cell">PM share 5%-20% <strong>AND</strong> combined Uber YoY ≥ +11%</td>
+          <td class="cities-cell" id="maintain-cities"></td>
+          <td class="strategy-cell"><strong>Status quo; monitor quarterly.</strong></td>
+        </tr>
+        <tr>
+          <td class="tier-cell"><span class="tier-tag migrate">MIGRATE</span><br><span class="tier-count-inline">17 cities</span></td>
+          <td class="rule-cell">PM share &lt; 5%</td>
+          <td class="cities-cell" id="migrate-cities"></td>
+          <td class="strategy-cell"><strong>UE-led; consolidate ops.</strong></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="rationale-box">
+      <strong>One consistent threshold: ~11% (US food-delivery industry baseline, 2022-23, Bloomberg Second Measure).</strong> Used as the "healthy vs underperforming" line on both charts.
+    </div>
+  </div>
+
+  <div id="tooltip"></div>
+
+  <!-- Detail table -->
+  <div class="panel">
+    <div class="panel-title">All 44 cities — sortable detail (Q&A backup)</div>
+    <div class="table-container">
+      <table class="detail" id="city-table">
+        <thead>
+          <tr>
+            <th data-col="city">City</th>
+            <th data-col="tier">Tier</th>
+            <th data-col="combined_gb_start">Combined GB Jun-22</th>
+            <th data-col="pm_share_start">PM share start</th>
+            <th data-col="pm_yoy">PM GB YoY</th>
+            <th data-col="ue_yoy">UE GB YoY</th>
+            <th data-col="combined_yoy">Combined YoY</th>
+            <th data-col="absorption_gb">Absorption ratio</th>
+            <th data-col="pm_aov">PM AOV</th>
+          </tr>
+        </thead>
+        <tbody id="city-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <strong>Methodology notes</strong>:
+    Industry baseline 11% YoY = US food-delivery 2022-23 (Bloomberg Second Measure). Used consistently as the "healthy vs underperforming" threshold across both charts.
+    Inferred city names: L2 ≈ Los Angeles, V1 ≈ Las Vegas (per hiring-manager guidance + 2021 PM share data).
+  </div>
+</div>
+
+<script>
+const CITIES = [{"city": "A1", "inferred": "", "tier": "Maintain", "combined_gb_start": 864823.0, "combined_gb_end": 988434.0, "pm_gb_start": 48571.0, "pm_gb_end": 39351.0, "ue_gb_start": 816252.0, "pm_share_start": 0.0561629373871878, "pm_share_end": 0.0398114593387115, "pm_yoy": -0.1898252043400383, "ue_yoy": 0.1627328325076079, "combined_yoy": 0.1429321375587837, "pm_ae_yoy": -0.3850931677018633, "absorption_gb": 14.406832971800434, "pm_aov": 29.556733897202342, "ue_aov": 29.55296538796367, "pm_take": 0.1444916566316876, "ue_take": 0.1583399226383698, "pm_smb": 0.8400640639944951}, {"city": "A2", "inferred": "", "tier": "Migrate", "combined_gb_start": 335838.0, "combined_gb_end": 390026.0, "pm_gb_start": 13896.0, "pm_gb_end": 15974.0, "ue_gb_start": 321942.0, "pm_share_start": 0.0413770925267539, "pm_share_end": 0.0409562439427115, "pm_yoy": 0.1495394358088658, "ue_yoy": 0.1618614533052537, "combined_yoy": 0.1613516040471894, "pm_ae_yoy": -0.1677018633540372, "absorption_gb": -25.07699711260828, "pm_aov": 28.66333757036499, "ue_aov": 28.276164082509876, "pm_take": 0.09640988158141849, "ue_take": 0.15508613746317468, "pm_smb": 0.8274952292488313}, {"city": "B1", "inferred": "", "tier": "Migrate", "combined_gb_start": 659990.0, "combined_gb_end": 720767.0, "pm_gb_start": 10775.0, "pm_gb_end": 16753.0, "ue_gb_start": 649215.0, "pm_share_start": 0.0163260049394687, "pm_share_end": 0.0232432949899204, "pm_yoy": 0.5548027842227378, "ue_yoy": 0.0844080928505964, "combined_yoy": 0.0920877589054379, "pm_ae_yoy": 0.2302158273381295, "absorption_gb": -9.16677818668451, "pm_aov": 33.13876319758673, "ue_aov": 28.836132126238486, "pm_take": 0.051278232284009066, "ue_take": 0.14247253633353832, "pm_smb": 0.8826023378405694}, {"city": "C1", "inferred": "", "tier": "Defend", "combined_gb_start": 151796.0, "combined_gb_end": 193404.0, "pm_gb_start": 35325.0, "pm_gb_end": 34286.0, "ue_gb_start": 116471.0, "pm_share_start": 0.2327136419932014, "pm_share_end": 0.1772765816632541, "pm_yoy": -0.0294125973106864, "ue_yoy": 0.366159816606709, "combined_yoy": 0.2741047194919497, "pm_ae_yoy": -0.243161094224924, "absorption_gb": 41.04619826756497, "pm_aov": 30.361236740399637, "ue_aov": 28.226699426699426, "pm_take": 0.10444957825175952, "ue_take": 0.12441741692066388, "pm_smb": 0.8403775361306616}, {"city": "C2", "inferred": "", "tier": "Migrate", "combined_gb_start": 1024382.0, "combined_gb_end": 1261131.0, "pm_gb_start": 33636.0, "pm_gb_end": 30909.0, "ue_gb_start": 990746.0, "pm_share_start": 0.0328354071039905, "pm_share_end": 0.0245089526781912, "pm_yoy": -0.081073849447021, "ue_yoy": 0.2417128103469507, "combined_yoy": 0.2311139789648783, "pm_ae_yoy": -0.3155216284987277, "absorption_gb": 87.81664833149982, "pm_aov": 30.612115732368895, "ue_aov": 27.298589138813785, "pm_take": 0.12360028640513517, "ue_take": 0.1359452998551409, "pm_smb": 0.8423882141541784}, {"city": "C3", "inferred": "", "tier": "Migrate", "combined_gb_start": 354801.0, "combined_gb_end": 416464.0, "pm_gb_start": 4257.0, "pm_gb_end": 6389.0, "ue_gb_start": 350544.0, "pm_share_start": 0.0119982750894163, "pm_share_end": 0.0153410618925045, "pm_yoy": 0.5008221752407799, "ue_yoy": 0.1698246154548359, "combined_yoy": 0.1737960152310732, "pm_ae_yoy": 0.1272727272727272, "absorption_gb": -27.92260787992496, "pm_aov": 34.165451486259116, "ue_aov": 30.307118385991625, "pm_take": 0.08208443661877175, "ue_take": 0.18304690978437718, "pm_smb": 0.8197802645196844}, {"city": "D1", "inferred": "", "tier": "Migrate", "combined_gb_start": 896792.0, "combined_gb_end": 1053597.0, "pm_gb_start": 23896.0, "pm_gb_end": 26494.0, "ue_gb_start": 872896.0, "pm_share_start": 0.0266460896172133, "pm_share_end": 0.0251462371286174, "pm_yoy": 0.1087211248744559, "ue_yoy": 0.1766613663025148, "combined_yoy": 0.1748510245408076, "pm_ae_yoy": -0.1774744027303754, "absorption_gb": -59.35604311008468, "pm_aov": 28.50912, "ue_aov": 26.825197980500015, "pm_take": 0.11789457988518601, "ue_take": 0.1679761108607369, "pm_smb": 0.7843158950272126}, {"city": "D2", "inferred": "", "tier": "Maintain", "combined_gb_start": 310039.0, "combined_gb_end": 365536.0, "pm_gb_start": 34675.0, "pm_gb_end": 28442.0, "ue_gb_start": 275364.0, "pm_share_start": 0.1118407684194569, "pm_share_end": 0.0778090256500043, "pm_yoy": -0.1797548666186013, "ue_yoy": 0.2241759997675803, "combined_yoy": 0.1790000612826128, "pm_ae_yoy": -0.4395604395604395, "absorption_gb": 9.90373816781646, "pm_aov": 30.95482468575749, "ue_aov": 29.446781186331027, "pm_take": 0.14544627683764572, "ue_take": 0.16293733660871657, "pm_smb": 0.8183971071590991}, {"city": "E1", "inferred": "", "tier": "Migrate", "combined_gb_start": 74780.0, "combined_gb_end": 80828.0, "pm_gb_start": 2839.0, "pm_gb_end": 2832.0, "ue_gb_start": 71941.0, "pm_share_start": 0.0379646964428991, "pm_share_end": 0.035037363289949, "pm_yoy": -0.0024656569214512, "ue_yoy": 0.0841661917404539, "combined_yoy": 0.0808772399037175, "pm_ae_yoy": -0.2580645161290322, "absorption_gb": 865.0, "pm_aov": 25.71027216856892, "ue_aov": 25.779807454949395, "pm_take": 0.12100700947081171, "ue_take": 0.19592696135404977, "pm_smb": 0.5729385467387234}, {"city": "F1", "inferred": "", "tier": "Maintain", "combined_gb_start": 24689.0, "combined_gb_end": 28330.0, "pm_gb_start": 3037.0, "pm_gb_end": 2736.0, "ue_gb_start": 21652.0, "pm_share_start": 0.1230102474786342, "pm_share_end": 0.0965760677726791, "pm_yoy": -0.099110964767863, "ue_yoy": 0.1820617033068538, "combined_yoy": 0.147474583822755, "pm_ae_yoy": -0.2592592592592592, "absorption_gb": 13.096345514950166, "pm_aov": 29.431313131313132, "ue_aov": 27.729094933595672, "pm_take": 0.12150571791613723, "ue_take": 0.17986765144827674, "pm_smb": 0.6466423999364677}, {"city": "G1", "inferred": "", "tier": "Maintain", "combined_gb_start": 35372.0, "combined_gb_end": 43426.0, "pm_gb_start": 2423.0, "pm_gb_end": 2580.0, "ue_gb_start": 32949.0, "pm_share_start": 0.0685005088770779, "pm_share_end": 0.0594114125178464, "pm_yoy": 0.0647957078002476, "ue_yoy": 0.2396734347021153, "combined_yoy": 0.2276942214180708, "pm_ae_yoy": -0.2580645161290322, "absorption_gb": -50.29936305732484, "pm_aov": 27.70824295010846, "ue_aov": 27.61507032293549, "pm_take": 0.08544563795149561, "ue_take": 0.15037952100231486, "pm_smb": 0.6539523689255394}, {"city": "H1", "inferred": "", "tier": "Migrate", "combined_gb_start": 655976.0, "combined_gb_end": 808533.0, "pm_gb_start": 17662.0, "pm_gb_end": 20130.0, "ue_gb_start": 638314.0, "pm_share_start": 0.0269247655402026, "pm_share_end": 0.0248969429819191, "pm_yoy": 0.1397350243460536, "ue_yoy": 0.2351334922937613, "combined_yoy": 0.2325649109113748, "pm_ae_yoy": -0.1278538812785388, "absorption_gb": -60.81401944894652, "pm_aov": 28.84129050925926, "ue_aov": 27.67380963484587, "pm_take": 0.10368642240945117, "ue_take": 0.16703822939869234, "pm_smb": 0.79296375588784}, {"city": "I1", "inferred": "", "tier": "Investigate", "combined_gb_start": 144826.0, "combined_gb_end": 141247.0, "pm_gb_start": 43117.0, "pm_gb_end": 31558.0, "ue_gb_start": 101709.0, "pm_share_start": 0.2977158797453496, "pm_share_end": 0.2234242143195961, "pm_yoy": -0.2680845142287265, "ue_yoy": 0.0784591334100227, "combined_yoy": -0.0247124135169099, "pm_ae_yoy": -0.3933649289099526, "absorption_gb": 0.690371139371918, "pm_aov": 29.249142674854454, "ue_aov": 26.900820827877933, "pm_take": 0.14109990645198442, "ue_take": 0.12713221133485975, "pm_smb": 0.6493570883331684}, {"city": "K1", "inferred": "", "tier": "Maintain", "combined_gb_start": 82606.0, "combined_gb_end": 95859.0, "pm_gb_start": 14935.0, "pm_gb_end": 10880.0, "ue_gb_start": 67671.0, "pm_share_start": 0.1807980049875311, "pm_share_end": 0.1135000365119602, "pm_yoy": -0.2715098761298962, "ue_yoy": 0.2557668720722318, "combined_yoy": 0.1604362879209742, "pm_ae_yoy": -0.4155844155844156, "absorption_gb": 4.268310727496917, "pm_aov": 29.311239860950174, "ue_aov": 27.078663405510394, "pm_take": 0.15795801131148027, "ue_take": 0.1394433678968625, "pm_smb": 0.7679921263806224}, {"city": "K2", "inferred": "", "tier": "Migrate", "combined_gb_start": 37326.0, "combined_gb_end": 39127.0, "pm_gb_start": 1656.0, "pm_gb_end": 1638.0, "ue_gb_start": 35670.0, "pm_share_start": 0.0443658575791673, "pm_share_end": 0.0418636747003348, "pm_yoy": -0.0108695652173913, "ue_yoy": 0.0509952340902719, "combined_yoy": 0.0482505492150243, "pm_ae_yoy": -0.1875, "absorption_gb": 101.05555555555556, "pm_aov": 26.40809968847352, "ue_aov": 24.587548896108203, "pm_take": 0.1291681768756796, "ue_take": 0.16826693755850086, "pm_smb": 0.5181083861906488}, {"city": "K3", "inferred": "", "tier": "Migrate", "combined_gb_start": 37381.0, "combined_gb_end": 39122.0, "pm_gb_start": 1715.0, "pm_gb_end": 1673.0, "ue_gb_start": 35666.0, "pm_share_start": 0.0458789224472325, "pm_share_end": 0.0427636623894483, "pm_yoy": -0.0244897959183673, "ue_yoy": 0.0499915886278248, "combined_yoy": 0.0465744629624675, "pm_ae_yoy": -0.3043478260869565, "absorption_gb": 42.45238095238095, "pm_aov": 28.326984126984126, "ue_aov": 26.549306685258347, "pm_take": 0.06774418402021434, "ue_take": 0.14927163521463163, "pm_smb": 0.6125103075716651}, {"city": "L1", "inferred": "", "tier": "Defend", "combined_gb_start": 380086.0, "combined_gb_end": 435513.0, "pm_gb_start": 98571.0, "pm_gb_end": 99091.0, "ue_gb_start": 281515.0, "pm_share_start": 0.2593386759838563, "pm_share_end": 0.227527077262906, "pm_yoy": 0.0052753852552982, "ue_yoy": 0.1950411168143793, "combined_yoy": 0.1458275232447393, "pm_ae_yoy": -0.1801801801801801, "absorption_gb": -105.59038461538462, "pm_aov": 29.696489370833454, "ue_aov": 29.079686251458067, "pm_take": 0.13367467908936315, "ue_take": 0.16569574697231615, "pm_smb": 0.7424853427802743}, {"city": "L2", "inferred": "Los Angeles", "tier": "Investigate", "combined_gb_start": 2340094.0, "combined_gb_end": 2536356.0, "pm_gb_start": 1020779.0, "pm_gb_end": 902597.0, "ue_gb_start": 1319315.0, "pm_share_start": 0.436212818801296, "pm_share_end": 0.3558636879050101, "pm_yoy": -0.1157762845826569, "ue_yoy": 0.2383388349257, "combined_yoy": 0.0838692804648018, "pm_ae_yoy": -0.2423161827135337, "absorption_gb": 2.6606759066524512, "pm_aov": 34.860584455313536, "ue_aov": 29.606998458078774, "pm_take": 0.12099243671970578, "ue_take": 0.12933819468651764, "pm_smb": 0.8998361345010852}, {"city": "M1", "inferred": "", "tier": "Migrate", "combined_gb_start": 99675.0, "combined_gb_end": 113900.0, "pm_gb_start": 2874.0, "pm_gb_end": 3449.0, "ue_gb_start": 96801.0, "pm_share_start": 0.0288337095560571, "pm_share_end": 0.0302809482001755, "pm_yoy": 0.2000695894224078, "ue_yoy": 0.1410109399696284, "combined_yoy": 0.1427138199147228, "pm_ae_yoy": -0.0606060606060606, "absorption_gb": -23.73913043478261, "pm_aov": 27.726027397260275, "ue_aov": 27.075108044989666, "pm_take": 0.08526361389292358, "ue_take": 0.14367895536374273, "pm_smb": 0.6850028565604058}, {"city": "M2", "inferred": "", "tier": "Maintain", "combined_gb_start": 1705866.0, "combined_gb_end": 1986984.0, "pm_gb_start": 111299.0, "pm_gb_end": 100130.0, "ue_gb_start": 1594567.0, "pm_share_start": 0.0652448668301027, "pm_share_end": 0.0503929573665414, "pm_yoy": -0.1003513059416526, "ue_yoy": 0.1833017991718127, "combined_yoy": 0.1647948901027396, "pm_ae_yoy": -0.3717105263157895, "absorption_gb": 26.16948697287134, "pm_aov": 32.461816275412126, "ue_aov": 31.68133409060443, "pm_take": 0.17959246875842333, "ue_take": 0.20843741062979124, "pm_smb": 0.8573907254526373}, {"city": "N1", "inferred": "", "tier": "Maintain", "combined_gb_start": 259325.0, "combined_gb_end": 316627.0, "pm_gb_start": 38831.0, "pm_gb_end": 38831.0, "ue_gb_start": 220494.0, "pm_share_start": 0.1497387448182782, "pm_share_end": 0.1226395727464808, "pm_yoy": 0.0, "ue_yoy": 0.259880087440021, "combined_yoy": 0.2209659693434879, "pm_ae_yoy": -0.18562874251497, "absorption_gb": null, "pm_aov": 30.22388604821037, "ue_aov": 28.367879348500637, "pm_take": 0.1220325877041038, "ue_take": 0.15905310653186014, "pm_smb": 0.8496965662903112}, {"city": "N2", "inferred": "", "tier": "Migrate", "combined_gb_start": 982092.0, "combined_gb_end": 1141303.0, "pm_gb_start": 11636.0, "pm_gb_end": 19221.0, "ue_gb_start": 970456.0, "pm_share_start": 0.0118481771565189, "pm_share_end": 0.0168412770316033, "pm_yoy": 0.6518563080096254, "ue_yoy": 0.1562420140634918, "combined_yoy": 0.1621141400194686, "pm_ae_yoy": 0.1988304093567251, "absorption_gb": -19.990243902439023, "pm_aov": 34.014645577035736, "ue_aov": 28.192849304580836, "pm_take": 0.032892606069843205, "ue_take": 0.13776848776820622, "pm_smb": 0.8570204152298576}, {"city": "N3", "inferred": "", "tier": "Maintain", "combined_gb_start": 2269108.0, "combined_gb_end": 2770883.0, "pm_gb_start": 114935.0, "pm_gb_end": 121169.0, "ue_gb_start": 2154173.0, "pm_share_start": 0.0506520623963249, "pm_share_end": 0.0437293815725889, "pm_yoy": 0.0542393526776003, "ue_yoy": 0.2300376989220457, "combined_yoy": 0.2211331501189013, "pm_ae_yoy": -0.0778781038374717, "absorption_gb": -79.49005453962143, "pm_aov": 36.04996079309959, "ue_aov": 28.629105501693285, "pm_take": 0.0930336901714035, "ue_take": 0.11663214042165886, "pm_smb": 0.9249544314389109}, {"city": "N4", "inferred": "", "tier": "Migrate", "combined_gb_start": 714606.0, "combined_gb_end": 853024.0, "pm_gb_start": 8227.0, "pm_gb_end": 11938.0, "ue_gb_start": 706379.0, "pm_share_start": 0.0115126377332404, "pm_share_end": 0.0139949169073789, "pm_yoy": 0.4510757262671691, "ue_yoy": 0.1907007428023766, "combined_yoy": 0.1936983456618052, "pm_ae_yoy": 0.1862745098039215, "absorption_gb": -36.2993802209647, "pm_aov": 35.709625839462745, "ue_aov": 29.57371483099274, "pm_take": 0.07499575272748761, "ue_take": 0.17097242244251226, "pm_smb": 0.8454484669192871}, {"city": "O1", "inferred": "", "tier": "Investigate", "combined_gb_start": 90349.0, "combined_gb_end": 92491.0, "pm_gb_start": 37792.0, "pm_gb_end": 30260.0, "ue_gb_start": 52557.0, "pm_share_start": 0.4182890790158164, "pm_share_end": 0.3271669675968472, "pm_yoy": -0.1993014394580863, "ue_yoy": 0.1840668226877485, "combined_yoy": 0.0237080653908731, "pm_ae_yoy": -0.3452380952380952, "absorption_gb": 1.2843866171003715, "pm_aov": 26.902865620363862, "ue_aov": 24.9387088564642, "pm_take": 0.19150251901172288, "ue_take": 0.17858720928764585, "pm_smb": 0.7224266407931397}, {"city": "O2", "inferred": "", "tier": "Investigate", "combined_gb_start": 372035.0, "combined_gb_end": 387602.0, "pm_gb_start": 122727.0, "pm_gb_end": 107662.0, "ue_gb_start": 249308.0, "pm_share_start": 0.3298802532019836, "pm_share_end": 0.2777643046217511, "pm_yoy": -0.122752124634351, "ue_yoy": 0.1228680988977489, "combined_yoy": 0.0418428373674519, "pm_ae_yoy": -0.2773512476007677, "absorption_gb": 2.033322270162629, "pm_aov": 30.772357941594485, "ue_aov": 29.60355741163866, "pm_take": 0.1458480344975429, "ue_take": 0.16212009801533153, "pm_smb": 0.8290413159846776}, {"city": "P1", "inferred": "", "tier": "Investigate", "combined_gb_start": 130565.0, "combined_gb_end": 131880.0, "pm_gb_start": 46234.0, "pm_gb_end": 33766.0, "ue_gb_start": 84331.0, "pm_share_start": 0.3541071496955539, "pm_share_end": 0.2560357901122232, "pm_yoy": -0.2696716701994203, "ue_yoy": 0.1634393046447925, "combined_yoy": 0.0100716118408455, "pm_ae_yoy": -0.3868778280542986, "absorption_gb": 1.105470003208213, "pm_aov": 30.56929789765966, "ue_aov": 28.891318411178677, "pm_take": 0.17938905005013434, "ue_take": 0.1825701495371238, "pm_smb": 0.665234497202428}, {"city": "P2", "inferred": "", "tier": "Migrate", "combined_gb_start": 335242.0, "combined_gb_end": 369454.0, "pm_gb_start": 6722.0, "pm_gb_end": 9773.0, "ue_gb_start": 328520.0, "pm_share_start": 0.0200511869037889, "pm_share_end": 0.0264525488964796, "pm_yoy": 0.4538827729842309, "ue_yoy": 0.0948526725922318, "combined_yoy": 0.1020516522392779, "pm_ae_yoy": 0.1075268817204301, "absorption_gb": -10.2133726647001, "pm_aov": 32.01996615905245, "ue_aov": 27.577700187606087, "pm_take": 0.04072963084979107, "ue_take": 0.14390434290763573, "pm_smb": 0.8341067605291903}, {"city": "P3", "inferred": "", "tier": "Investigate", "combined_gb_start": 566469.0, "combined_gb_end": 609323.0, "pm_gb_start": 113117.0, "pm_gb_end": 88052.0, "ue_gb_start": 453352.0, "pm_share_start": 0.199687891129082, "pm_share_end": 0.1445079210861891, "pm_yoy": -0.2215847308538946, "ue_yoy": 0.1498151546701018, "combined_yoy": 0.0756510947642324, "pm_ae_yoy": -0.3871297242083759, "absorption_gb": 2.709714741671654, "pm_aov": 28.001449989056688, "ue_aov": 27.090177063232183, "pm_take": 0.1678128955283465, "ue_take": 0.15760947350380938, "pm_smb": 0.7318551381447727}, {"city": "P4", "inferred": "", "tier": "Maintain", "combined_gb_start": 46805.0, "combined_gb_end": 52102.0, "pm_gb_start": 3321.0, "pm_gb_end": 3381.0, "ue_gb_start": 43484.0, "pm_share_start": 0.0709539579104796, "pm_share_end": 0.0648919427277263, "pm_yoy": 0.01806684733514, "ue_yoy": 0.1204351025664612, "combined_yoy": 0.1131716696934088, "pm_ae_yoy": -0.2272727272727272, "absorption_gb": -87.28333333333333, "pm_aov": 27.37798696596669, "ue_aov": 25.831675137882556, "pm_take": 0.08474254227626829, "ue_take": 0.1542110774725978, "pm_smb": 0.6946232081406887}, {"city": "P5", "inferred": "", "tier": "Investigate", "combined_gb_start": 253657.0, "combined_gb_end": 263739.0, "pm_gb_start": 55455.0, "pm_gb_end": 43506.0, "ue_gb_start": 198202.0, "pm_share_start": 0.2186219974217151, "pm_share_end": 0.1649585385551625, "pm_yoy": -0.2154720043278333, "ue_yoy": 0.1111542769497785, "combined_yoy": 0.03974658692644, "pm_ae_yoy": -0.360082304526749, "absorption_gb": 1.8437526152816133, "pm_aov": 32.15139790314528, "ue_aov": 29.584216854301015, "pm_take": 0.12052327610827278, "ue_take": 0.1545127524300186, "pm_smb": 0.8404840584838004}, {"city": "R1", "inferred": "", "tier": "Maintain", "combined_gb_start": 130815.0, "combined_gb_end": 158039.0, "pm_gb_start": 14935.0, "pm_gb_end": 13247.0, "ue_gb_start": 115880.0, "pm_share_start": 0.1141688644268623, "pm_share_end": 0.0838210821379532, "pm_yoy": -0.1130231001004352, "ue_yoy": 0.2494994822229893, "combined_yoy": 0.2081106906700301, "pm_ae_yoy": -0.3728813559322034, "absorption_gb": 17.127962085308056, "pm_aov": 29.29972752043597, "ue_aov": 27.75240884587631, "pm_take": 0.10333648878053424, "ue_take": 0.13612918446696257, "pm_smb": 0.829733840320269}, {"city": "R2", "inferred": "", "tier": "Migrate", "combined_gb_start": 47951.0, "combined_gb_end": 54203.0, "pm_gb_start": 2185.0, "pm_gb_end": 2351.0, "ue_gb_start": 45766.0, "pm_share_start": 0.0455673500031281, "pm_share_end": 0.0433739829898714, "pm_yoy": 0.0759725400457665, "ue_yoy": 0.1329808154525193, "combined_yoy": 0.1303830994139851, "pm_ae_yoy": -0.28125, "absorption_gb": -36.66265060240964, "pm_aov": 30.066356228172292, "ue_aov": 27.227610400330168, "pm_take": 0.0803549344546129, "ue_take": 0.16558101327962033, "pm_smb": 0.796171558867178}, {"city": "R3", "inferred": "", "tier": "Migrate", "combined_gb_start": 77027.0, "combined_gb_end": 82685.0, "pm_gb_start": 2734.0, "pm_gb_end": 2826.0, "ue_gb_start": 74293.0, "pm_share_start": 0.035494047541771, "pm_share_end": 0.0341779040938501, "pm_yoy": 0.0336503291880029, "ue_yoy": 0.0749195751955096, "combined_yoy": 0.0734547626157061, "pm_ae_yoy": -0.2432432432432432, "absorption_gb": -60.5, "pm_aov": 29.83130081300813, "ue_aov": 27.325775363588576, "pm_take": 0.06900781270831667, "ue_take": 0.15974812991194015, "pm_smb": 0.7664013998880089}, {"city": "S1", "inferred": "", "tier": "Investigate", "combined_gb_start": 103382.0, "combined_gb_end": 102590.0, "pm_gb_start": 22468.0, "pm_gb_end": 16104.0, "ue_gb_start": 80914.0, "pm_share_start": 0.2173299026909907, "pm_share_end": 0.1569743639730968, "pm_yoy": -0.2832472850275948, "ue_yoy": 0.0688632375114318, "combined_yoy": -0.0076609080884486, "pm_ae_yoy": -0.3896713615023474, "absorption_gb": 0.8755499685732244, "pm_aov": 31.597431506849315, "ue_aov": 28.45207622298066, "pm_take": 0.14870199451081306, "ue_take": 0.14378056320611546, "pm_smb": 0.7728190799039193}, {"city": "S2", "inferred": "", "tier": "Maintain", "combined_gb_start": 205530.0, "combined_gb_end": 238487.0, "pm_gb_start": 10523.0, "pm_gb_end": 10828.0, "ue_gb_start": 195007.0, "pm_share_start": 0.0511993382961124, "pm_share_end": 0.0454028940780839, "pm_yoy": 0.0289841300009503, "ue_yoy": 0.1674401431743475, "combined_yoy": 0.1603512869167518, "pm_ae_yoy": -0.1842105263157894, "absorption_gb": -107.05573770491804, "pm_aov": 27.283891945972986, "ue_aov": 26.66420768176637, "pm_take": 0.11141986505114997, "ue_take": 0.16601131832464647, "pm_smb": 0.7236940876441994}, {"city": "S3", "inferred": "", "tier": "Investigate", "combined_gb_start": 405236.0, "combined_gb_end": 423780.0, "pm_gb_start": 81688.0, "pm_gb_end": 63636.0, "ue_gb_start": 323548.0, "pm_share_start": 0.2015813007728829, "pm_share_end": 0.150162820331304, "pm_yoy": -0.2209871706982665, "ue_yoy": 0.1131084104985968, "combined_yoy": 0.0457609886584607, "pm_ae_yoy": -0.3960948396094839, "absorption_gb": 2.027254597828496, "pm_aov": 31.9886610267086, "ue_aov": 30.496596124541266, "pm_take": 0.17065721223976293, "ue_take": 0.18944621450059435, "pm_smb": 0.8606495826593606}, {"city": "S4", "inferred": "", "tier": "Investigate", "combined_gb_start": 761300.0, "combined_gb_end": 787336.0, "pm_gb_start": 58312.0, "pm_gb_end": 47403.0, "ue_gb_start": 702988.0, "pm_share_start": 0.0765952975174044, "pm_share_end": 0.0602068240243047, "pm_yoy": -0.1870798463438057, "ue_yoy": 0.0525542399016768, "combined_yoy": 0.0341993957703927, "pm_ae_yoy": -0.3871527777777778, "absorption_gb": 3.3866532221101844, "pm_aov": 34.65672317846512, "ue_aov": 32.13999857548589, "pm_take": 0.10431421766476033, "ue_take": 0.12619320473372536, "pm_smb": 0.8795988355177773}, {"city": "S5", "inferred": "", "tier": "Investigate", "combined_gb_start": 499360.0, "combined_gb_end": 508207.0, "pm_gb_start": 33117.0, "pm_gb_end": 23377.0, "ue_gb_start": 466243.0, "pm_share_start": 0.0663188881768663, "pm_share_end": 0.0459989728594844, "pm_yoy": -0.2941087658906302, "ue_yoy": 0.0398654778731262, "combined_yoy": 0.0177166773470041, "pm_ae_yoy": -0.4924012158054711, "absorption_gb": 1.908316221765913, "pm_aov": 35.52173913043478, "ue_aov": 32.65838742861197, "pm_take": 0.14681922556521837, "ue_take": 0.15790707020412237, "pm_smb": 0.8929456017673778}, {"city": "S6", "inferred": "", "tier": "Investigate", "combined_gb_start": 95649.0, "combined_gb_end": 100777.0, "pm_gb_start": 22727.0, "pm_gb_end": 16104.0, "ue_gb_start": 72922.0, "pm_share_start": 0.2376083388221518, "pm_share_end": 0.1597983666908123, "pm_yoy": -0.2914154969859638, "ue_yoy": 0.1611447848385946, "combined_yoy": 0.0536126880573764, "pm_ae_yoy": -0.4200913242009132, "absorption_gb": 1.7742714781820927, "pm_aov": 31.759234608985025, "ue_aov": 27.777113307770783, "pm_take": 0.14500596896140072, "ue_take": 0.13449298419899802, "pm_smb": 0.8245489359331476}, {"city": "U1", "inferred": "", "tier": "Migrate", "combined_gb_start": 154688.0, "combined_gb_end": 188366.0, "pm_gb_start": 2778.0, "pm_gb_end": 5148.0, "ue_gb_start": 151910.0, "pm_share_start": 0.0179587298303682, "pm_share_end": 0.0273297728889502, "pm_yoy": 0.8531317494600432, "ue_yoy": 0.2060957145678362, "combined_yoy": 0.217715659908978, "pm_ae_yoy": 0.3414634146341463, "absorption_gb": -13.21012658227848, "pm_aov": 31.036877688998157, "ue_aov": 26.377970186791018, "pm_take": -0.0049261083743842365, "ue_take": 0.08899269704677558, "pm_smb": 0.7111660034338344}, {"city": "V1", "inferred": "Las Vegas", "tier": "Investigate", "combined_gb_start": 43805.0, "combined_gb_end": 45226.0, "pm_gb_start": 17662.0, "pm_gb_end": 14026.0, "ue_gb_start": 26143.0, "pm_share_start": 0.4031959821938135, "pm_share_end": 0.3101313403794277, "pm_yoy": -0.2058657003736836, "ue_yoy": 0.1934361014420686, "combined_yoy": 0.0324392192672069, "pm_ae_yoy": -0.345679012345679, "absorption_gb": 1.390814081408141, "pm_aov": 30.741890268321985, "ue_aov": 29.09454926624738, "pm_take": 0.16149876404007113, "ue_take": 0.17253814942684592, "pm_smb": 0.7106077202923899}, {"city": "W1", "inferred": "", "tier": "Migrate", "combined_gb_start": 1004706.0, "combined_gb_end": 1082632.0, "pm_gb_start": 41818.0, "pm_gb_end": 30779.0, "ue_gb_start": 962888.0, "pm_share_start": 0.0416221262737557, "pm_share_end": 0.0284297896238056, "pm_yoy": -0.263977234683629, "ue_yoy": 0.0923939232807969, "combined_yoy": 0.077560997943677, "pm_ae_yoy": -0.4790286975717439, "absorption_gb": 8.059153908868558, "pm_aov": 32.439653694496826, "ue_aov": 30.371284078731836, "pm_take": 0.1209625, "ue_take": 0.14416406471715135, "pm_smb": 0.85297430125}, {"city": "W2", "inferred": "", "tier": "Investigate", "combined_gb_start": 17604.0, "combined_gb_end": 19226.0, "pm_gb_start": 1509.0, "pm_gb_end": 1333.0, "ue_gb_start": 16095.0, "pm_share_start": 0.0857191547375596, "pm_share_end": 0.0693331946322688, "pm_yoy": -0.1166335321404904, "ue_yoy": 0.1117117117117117, "combined_yoy": 0.092138150420359, "pm_ae_yoy": -0.35, "absorption_gb": 10.215909090909092, "pm_aov": 26.573260073260073, "ue_aov": 27.027171109200346, "pm_take": 0.059490084985835696, "ue_take": 0.14269893639111275, "pm_smb": 0.6876333732839399}];
+
+// Chart 1 zone colors (vibrant, branded)
+const CHART1_COLORS = {
+  BothHealthy: '#1976D2',  // blue
+  UEDriven:    '#06C167',  // Uber green
+  PMDriven:    '#1A1A1A',  // black (Postmates brand)
+  Leakage:     '#E53935',  // red
+};
+
+// Chart 2 DIM tier colors (muted, more "table-like")
+const TIER_COLORS = {
+  Defend:      '#2e7d32',
+  Investigate: '#c62828',
+  Maintain:    '#b07c00',
+  Migrate:     '#546e7a',
+};
+
+// Determine Chart 1 zone for a city
+function chart1Zone(city) {
+  const ue = city.ue_yoy, pm = city.pm_yoy;
+  if (ue >= 0.11 && pm >= 0.11) return 'BothHealthy';
+  if (ue >= 0.11 && pm < 0.11) return 'UEDriven';
+  if (ue < 0.11 && pm >= 0.11) return 'PMDriven';
+  return 'Leakage';
+}
+
+// === Independent filter state for each chart (default empty = nothing revealed) ===
+let chart1ActiveZones = new Set();
+let chart2ActiveTiers = new Set();
+let sortCol = 'pm_share_start';
+let sortAsc = false;
+
+function fmt(v, kind) {
+  if (v === null || isNaN(v)) return '—';
+  if (kind === 'pct') return (v*100).toFixed(1) + '%';
+  if (kind === 'pctsigned') return (v >= 0 ? '+' : '') + (v*100).toFixed(1) + '%';
+  if (kind === 'money') return '$' + Math.round(v).toLocaleString();
+  if (kind === 'moneyM') return '$' + (v/1e6).toFixed(2) + 'M';
+  if (kind === 'aov') return '$' + v.toFixed(2);
+  if (kind === 'ratio') return v.toFixed(2);
+  return v;
+}
+
+function renderPlaybookCities() {
+  const tiers = ['Defend','Investigate','Maintain','Migrate'];
+  tiers.forEach(t => {
+    const cities = CITIES.filter(c => c.tier === t).sort((a,b) => b.pm_gb_start - a.pm_gb_start);
+    let html = '';
+    cities.forEach(c => {
+      const isKey = (c.inferred && c.inferred !== '') || c.city === 'L2' || c.city === 'V1' || c.city === 'L1';
+      html += '<span class="city-pill ' + (isKey ? 'key' : '') + '">' + c.city + (c.inferred ? ' (' + c.inferred + ')' : '') + '</span>';
+    });
+    document.getElementById(t.toLowerCase() + '-cities').innerHTML = html;
+  });
+}
+
+// === Chart 1 chip handlers (zones) ===
+document.querySelectorAll('#chart1-chips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const zone = c.dataset.zone;
+    if (chart1ActiveZones.has(zone)) { chart1ActiveZones.delete(zone); c.classList.remove('active'); }
+    else { chart1ActiveZones.add(zone); c.classList.add('active'); }
+    drawUEPMScatter();
+  });
+});
+
+// === Chart 2 chip handlers (DIM tiers) — also drives the table ===
+document.querySelectorAll('#chart2-chips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const tier = c.dataset.tier;
+    if (chart2ActiveTiers.has(tier)) { chart2ActiveTiers.delete(tier); c.classList.remove('active'); }
+    else { chart2ActiveTiers.add(tier); c.classList.add('active'); }
+    drawDIMScatter();
+    renderTable();
+  });
+});
+
+function attachTooltip(svg) {
+  const tooltip = document.getElementById('tooltip');
+  svg.querySelectorAll('circle[data-city]').forEach(circle => {
+    circle.addEventListener('mouseenter', () => {
+      const city = CITIES.find(c => c.city === circle.getAttribute('data-city'));
+      if (!city) return;
+      let html = '<div class="city-name">' + city.city + (city.inferred ? ' — ' + city.inferred : '') + '</div>';
+      html += '<div style="margin: 4px 0 8px 0; padding: 3px 10px; background: ' + TIER_COLORS[city.tier] + '; border-radius: 3px; display: inline-block; font-size: 12px; font-weight: 700;">' + city.tier + '</div>';
+      html += '<div class="row"><span class="label">Combined GB Jun-22:</span><span>' + fmt(city.combined_gb_start, 'money') + '</span></div>';
+      html += '<div class="row"><span class="label">PM GB Jun-22:</span><span>' + fmt(city.pm_gb_start, 'money') + '</span></div>';
+      html += '<div class="row"><span class="label">PM share:</span><span>' + fmt(city.pm_share_start, 'pct') + ' → ' + fmt(city.pm_share_end, 'pct') + '</span></div>';
+      html += '<div class="row"><span class="label">PM GB YoY:</span><span>' + fmt(city.pm_yoy, 'pctsigned') + '</span></div>';
+      html += '<div class="row"><span class="label">UE GB YoY:</span><span>' + fmt(city.ue_yoy, 'pctsigned') + '</span></div>';
+      html += '<div class="row"><span class="label">Combined YoY:</span><span>' + fmt(city.combined_yoy, 'pctsigned') + '</span></div>';
+      html += '<div class="row"><span class="label">PM AE YoY:</span><span>' + fmt(city.pm_ae_yoy, 'pctsigned') + '</span></div>';
+      html += '<div class="row"><span class="label">Absorption ratio:</span><span>' + fmt(city.absorption_gb, 'ratio') + '</span></div>';
+      html += '<div class="row"><span class="label">PM AOV:</span><span>' + fmt(city.pm_aov, 'aov') + '</span></div>';
+      tooltip.innerHTML = html;
+      tooltip.style.display = 'block';
+    });
+    circle.addEventListener('mousemove', e => {
+      const containerRect = document.querySelector('.container').getBoundingClientRect();
+      tooltip.style.left = (e.clientX - containerRect.left + 14) + 'px';
+      tooltip.style.top = (e.clientY - containerRect.top + 14) + 'px';
+    });
+    circle.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  });
+}
+
+// ===== CHART 1: UE YoY × PM YoY =====
+function drawUEPMScatter() {
+  const svg = document.getElementById('scatter-uepm');
+  const W = 1300, H = 660;
+  const pad = { l: 100, r: 60, t: 40, b: 90 };
+
+  const xMin = 0, xMax = 0.40;
+  const yMin = -0.40, yMax = 1.00;
+
+  function xScale(v) { return pad.l + (Math.min(Math.max(v, xMin), xMax) - xMin) / (xMax - xMin) * (W - pad.l - pad.r); }
+  function yScale(v) { return H - pad.b - (Math.min(Math.max(v, yMin), yMax) - yMin) / (yMax - yMin) * (H - pad.t - pad.b); }
+  const gbMax = Math.max(...CITIES.map(c => c.combined_gb_start));
+  function rScale(v) { return 10 + 38 * Math.sqrt(Math.max(v, 0) / gbMax); }
+
+  let html = '';
+
+  // 4-zone shading using new colors at 5% opacity
+  // Both Healthy (UE >= 11%, PM >= 11%): top-right
+  html += '<rect x="' + xScale(0.11) + '" y="' + yScale(yMax) + '" width="' + (xScale(xMax) - xScale(0.11)) + '" height="' + (yScale(0.11) - yScale(yMax)) + '" fill="' + CHART1_COLORS.BothHealthy + '" fill-opacity="0.05"/>';
+  // UE-Driven (UE >= 11%, PM < 11%): bottom-right
+  html += '<rect x="' + xScale(0.11) + '" y="' + yScale(0.11) + '" width="' + (xScale(xMax) - xScale(0.11)) + '" height="' + (yScale(yMin) - yScale(0.11)) + '" fill="' + CHART1_COLORS.UEDriven + '" fill-opacity="0.05"/>';
+  // PM-Driven (UE < 11%, PM >= 11%): top-left
+  html += '<rect x="' + xScale(xMin) + '" y="' + yScale(yMax) + '" width="' + (xScale(0.11) - xScale(xMin)) + '" height="' + (yScale(0.11) - yScale(yMax)) + '" fill="' + CHART1_COLORS.PMDriven + '" fill-opacity="0.04"/>';
+  // Leakage (UE < 11%, PM < 11%): bottom-left
+  html += '<rect x="' + xScale(xMin) + '" y="' + yScale(0.11) + '" width="' + (xScale(0.11) - xScale(xMin)) + '" height="' + (yScale(yMin) - yScale(0.11)) + '" fill="' + CHART1_COLORS.Leakage + '" fill-opacity="0.05"/>';
+
+  // Y grid (every 0.20)
+  for (let yV = -0.40; yV <= 1.001; yV += 0.20) {
+    const yPx = yScale(yV);
+    html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + yPx + '" y2="' + yPx + '" stroke="#e0e3eb" stroke-width="1"/>';
+    html += '<text x="' + (pad.l - 14) + '" y="' + (yPx + 6) + '" text-anchor="end" font-size="16" fill="#444" font-weight="500">' + (yV >= 0 ? '+' : '') + (yV*100).toFixed(0) + '%</text>';
+  }
+  for (let xV = xMin; xV <= xMax + 0.001; xV += 0.10) {
+    const xPx = xScale(xV);
+    html += '<line x1="' + xPx + '" x2="' + xPx + '" y1="' + pad.t + '" y2="' + (H - pad.b) + '" stroke="#e0e3eb" stroke-width="1"/>';
+    html += '<text x="' + xPx + '" y="' + (H - pad.b + 26) + '" text-anchor="middle" font-size="16" fill="#444" font-weight="500">' + (xV*100).toFixed(0) + '%</text>';
+  }
+
+  // 11% UE threshold line
+  const x11 = xScale(0.11);
+  html += '<line x1="' + x11 + '" x2="' + x11 + '" y1="' + pad.t + '" y2="' + (H - pad.b) + '" stroke="#222e63" stroke-dasharray="6 4" stroke-width="2.5" opacity="0.75"/>';
+  html += '<text x="' + (x11 + 8) + '" y="' + (pad.t + 18) + '" font-size="14" font-weight="700" fill="#fff" stroke="#fff" stroke-width="3.5">11% — industry baseline (UE)</text>';
+  html += '<text x="' + (x11 + 8) + '" y="' + (pad.t + 18) + '" font-size="14" font-weight="700" fill="#222e63">11% — industry baseline (UE)</text>';
+
+  // 11% PM threshold line
+  const y11 = yScale(0.11);
+  html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + y11 + '" y2="' + y11 + '" stroke="#222e63" stroke-dasharray="6 4" stroke-width="2.5" opacity="0.75"/>';
+  html += '<text x="' + (W - pad.r - 8) + '" y="' + (y11 - 8) + '" font-size="14" font-weight="700" fill="#222e63" text-anchor="end">11% — industry baseline (PM)</text>';
+
+  // Zero PM line (subtle)
+  const y0 = yScale(0);
+  html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + y0 + '" y2="' + y0 + '" stroke="#999" stroke-dasharray="2 4" stroke-width="1" opacity="0.5"/>';
+
+  // Axis titles
+  html += '<text x="' + (W/2) + '" y="' + (H - 22) + '" text-anchor="middle" font-size="19" font-weight="700" fill="#222">UE GB YoY (Jun-22 → Jun-23)</text>';
+  html += '<text x="' + 32 + '" y="' + (H/2) + '" text-anchor="middle" font-size="19" font-weight="700" fill="#222" transform="rotate(-90, 32, ' + (H/2) + ')">PM GB YoY (Jun-22 → Jun-23)</text>';
+
+  // Bubbles — only render cities whose zone is in chart1ActiveZones
+  CITIES.forEach(c => {
+    const zone = chart1Zone(c);
+    if (!chart1ActiveZones.has(zone)) return;
+    const xV = c.ue_yoy, yV = c.pm_yoy;
+    if (xV === null || isNaN(xV) || yV === null || isNaN(yV)) return;
+    const x = xScale(xV), y = yScale(yV), r = rScale(c.combined_gb_start);
+    const color = CHART1_COLORS[zone];
+    html += '<circle data-city="' + c.city + '" cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + color + '" fill-opacity="0.55" stroke="' + color + '" stroke-width="2" style="cursor:pointer;"/>';
+  });
+
+  // Zone labels — drawn AFTER bubbles so they sit on top
+  html += '<text x="' + ((xScale(0.11) + xScale(xMax))/2) + '" y="' + (yScale(0.55)) + '" text-anchor="middle" font-size="26" font-weight="800" fill="' + CHART1_COLORS.BothHealthy + '" opacity="0.45" style="pointer-events:none;">BOTH HEALTHY</text>';
+  html += '<text x="' + ((xScale(0.11) + xScale(xMax))/2) + '" y="' + (yScale(-0.20)) + '" text-anchor="middle" font-size="26" font-weight="800" fill="' + CHART1_COLORS.UEDriven + '" opacity="0.55" style="pointer-events:none;">UE-DRIVEN</text>';
+  html += '<text x="' + ((xScale(xMin) + xScale(0.11))/2) + '" y="' + (yScale(0.55)) + '" text-anchor="middle" font-size="22" font-weight="800" fill="' + CHART1_COLORS.PMDriven + '" opacity="0.45" style="pointer-events:none;">PM-DRIVEN</text>';
+  html += '<text x="' + ((xScale(xMin) + xScale(0.11))/2) + '" y="' + (yScale(-0.20)) + '" text-anchor="middle" font-size="22" font-weight="800" fill="' + CHART1_COLORS.Leakage + '" opacity="0.45" style="pointer-events:none;">LEAKAGE</text>';
+
+  // Always-on labels for revealed key cities
+  const ALWAYS_LABEL = {
+    'L2': { position: 'above', label: 'L2 — LA' },
+    'V1': { position: 'below', label: 'V1 — Vegas' },
+    'C1': { position: 'above', label: 'C1' },
+    'I1': { position: 'below', label: 'I1' },
+    'S5': { position: 'above', label: 'S5' },
+    'S4': { position: 'below', label: 'S4' },
+    'B1': { position: 'below', label: 'B1' },
+    'P2': { position: 'above', label: 'P2' },
+    'N3': { position: 'above', label: 'N3' },
+    'M2': { position: 'below', label: 'M2' },
+    'N2': { position: 'above', label: 'N2' },
+    'U1': { position: 'above', label: 'U1' },
+    'W1': { position: 'below', label: 'W1' },
+  };
+  CITIES.forEach(c => {
+    const zone = chart1Zone(c);
+    if (!chart1ActiveZones.has(zone)) return;
+    const cfg = ALWAYS_LABEL[c.city];
+    if (!cfg) return;
+    const xV = c.ue_yoy, yV = c.pm_yoy;
+    if (xV === null || isNaN(xV) || yV === null || isNaN(yV)) return;
+    const x = xScale(xV), y = yScale(yV), r = rScale(c.combined_gb_start);
+    const labelY = cfg.position === 'below' ? y + r + 22 : y - r - 10;
+    html += '<text x="' + x + '" y="' + labelY + '" text-anchor="middle" font-size="16" font-weight="700" fill="#fff" stroke="#fff" stroke-width="4" style="pointer-events:none;">' + cfg.label + '</text>';
+    html += '<text x="' + x + '" y="' + labelY + '" text-anchor="middle" font-size="16" font-weight="700" fill="#222" style="pointer-events:none;">' + cfg.label + '</text>';
+  });
+
+  svg.innerHTML = html;
+  attachTooltip(svg);
+}
+
+// ===== CHART 2: PM share × Combined YoY (DIM tiers) =====
+function drawDIMScatter() {
+  const svg = document.getElementById('scatter-dim');
+  const W = 1300, H = 660;
+  const pad = { l: 100, r: 60, t: 40, b: 90 };
+
+  const xMin = 0, xMax = 0.50;
+  const yMin = -0.10, yMax = 0.40;
+
+  function xScale(v) { return pad.l + (v - xMin) / (xMax - xMin) * (W - pad.l - pad.r); }
+  function yScale(v) { return H - pad.b - (v - yMin) / (yMax - yMin) * (H - pad.t - pad.b); }
+  const pmGBMax = Math.max(...CITIES.map(c => c.pm_gb_start));
+  function rScale(v) { return 10 + 42 * Math.sqrt(Math.max(v, 0) / pmGBMax); }
+
+  let html = '';
+
+  html += '<rect x="' + xScale(0.20) + '" y="' + yScale(yMax) + '" width="' + (xScale(xMax) - xScale(0.20)) + '" height="' + (yScale(0.11) - yScale(yMax)) + '" fill="' + TIER_COLORS.Defend + '" fill-opacity="0.05"/>';
+  html += '<rect x="' + xScale(0.05) + '" y="' + yScale(0.11) + '" width="' + (xScale(xMax) - xScale(0.05)) + '" height="' + (yScale(yMin) - yScale(0.11)) + '" fill="' + TIER_COLORS.Investigate + '" fill-opacity="0.05"/>';
+  html += '<rect x="' + xScale(xMin) + '" y="' + yScale(yMax) + '" width="' + (xScale(0.05) - xScale(xMin)) + '" height="' + (yScale(yMin) - yScale(yMax)) + '" fill="' + TIER_COLORS.Migrate + '" fill-opacity="0.05"/>';
+  html += '<rect x="' + xScale(0.05) + '" y="' + yScale(yMax) + '" width="' + (xScale(0.20) - xScale(0.05)) + '" height="' + (yScale(0.11) - yScale(yMax)) + '" fill="' + TIER_COLORS.Maintain + '" fill-opacity="0.05"/>';
+
+  for (let yV = yMin; yV <= yMax + 0.001; yV += 0.10) {
+    const yPx = yScale(yV);
+    html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + yPx + '" y2="' + yPx + '" stroke="#e0e3eb" stroke-width="1"/>';
+    html += '<text x="' + (pad.l - 14) + '" y="' + (yPx + 6) + '" text-anchor="end" font-size="17" fill="#444" font-weight="500">' + (yV*100).toFixed(0) + '%</text>';
+  }
+  for (let xV = xMin; xV <= xMax + 0.001; xV += 0.10) {
+    const xPx = xScale(xV);
+    html += '<line x1="' + xPx + '" x2="' + xPx + '" y1="' + pad.t + '" y2="' + (H - pad.b) + '" stroke="#e0e3eb" stroke-width="1"/>';
+    html += '<text x="' + xPx + '" y="' + (H - pad.b + 26) + '" text-anchor="middle" font-size="17" fill="#444" font-weight="500">' + (xV*100).toFixed(0) + '%</text>';
+  }
+
+  [
+    {v: 0.05, color: '#546e7a', label: '5% — Migrate cutoff'},
+    {v: 0.20, color: '#2e7d32', label: '20% — Defend floor'},
+  ].forEach(t => {
+    const xPx = xScale(t.v);
+    html += '<line x1="' + xPx + '" x2="' + xPx + '" y1="' + pad.t + '" y2="' + (H - pad.b) + '" stroke="' + t.color + '" stroke-dasharray="6 4" stroke-width="2.5" opacity="0.75"/>';
+    const labelY = pad.t + 14;
+    html += '<text x="' + (xPx + 6) + '" y="' + labelY + '" font-size="13" font-weight="700" fill="#fff" stroke="#fff" stroke-width="3.5" style="pointer-events:none;">' + t.label + '</text>';
+    html += '<text x="' + (xPx + 6) + '" y="' + labelY + '" font-size="13" font-weight="700" fill="' + t.color + '" style="pointer-events:none;">' + t.label + '</text>';
+  });
+  const yPx11 = yScale(0.11);
+  html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + yPx11 + '" y2="' + yPx11 + '" stroke="#222e63" stroke-dasharray="6 4" stroke-width="2.5" opacity="0.75"/>';
+  html += '<text x="' + (W - pad.r - 8) + '" y="' + (yPx11 - 8) + '" font-size="14" font-weight="600" fill="#222e63" text-anchor="end">+11% combined-growth threshold (industry baseline)</text>';
+
+  const yPx0 = yScale(0);
+  html += '<line x1="' + pad.l + '" x2="' + (W-pad.r) + '" y1="' + yPx0 + '" y2="' + yPx0 + '" stroke="#999" stroke-dasharray="3 3" stroke-width="1"/>';
+
+  html += '<text x="' + (W/2) + '" y="' + (H - 22) + '" text-anchor="middle" font-size="19" font-weight="700" fill="#222">PM share of combined Uber GB (Jun-22 starting point)</text>';
+  html += '<text x="' + 32 + '" y="' + (H/2) + '" text-anchor="middle" font-size="19" font-weight="700" fill="#222" transform="rotate(-90, 32, ' + (H/2) + ')">Combined Uber GB YoY (Jun-22 → Jun-23)</text>';
+
+  CITIES.forEach(c => {
+    if (!chart2ActiveTiers.has(c.tier)) return;
+    const xV = c.pm_share_start, yV = c.combined_yoy;
+    if (xV === null || isNaN(xV) || yV === null || isNaN(yV)) return;
+    const x = xScale(Math.min(xV, xMax)), y = yScale(Math.max(Math.min(yV, yMax), yMin)), r = rScale(c.pm_gb_start);
+    const color = TIER_COLORS[c.tier];
+    html += '<circle data-city="' + c.city + '" cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + color + '" fill-opacity="0.55" stroke="' + color + '" stroke-width="2" style="cursor:pointer;"/>';
+  });
+
+  // Zone labels — drawn AFTER bubbles so they sit on top
+  html += '<text x="' + ((xScale(0.20) + xScale(xMax))/2) + '" y="' + (yScale(0.32)) + '" text-anchor="middle" font-size="34" font-weight="800" fill="' + TIER_COLORS.Defend + '" opacity="0.45" style="pointer-events:none;">DEFEND</text>';
+  html += '<text x="' + ((xScale(0.05) + xScale(xMax))/2) + '" y="' + (yScale(-0.05)) + '" text-anchor="middle" font-size="34" font-weight="800" fill="' + TIER_COLORS.Investigate + '" opacity="0.45" style="pointer-events:none;">INVESTIGATE</text>';
+  html += '<text x="' + ((xScale(xMin) + xScale(0.05))/2) + '" y="' + (yScale(0.32)) + '" text-anchor="middle" font-size="26" font-weight="800" fill="' + TIER_COLORS.Migrate + '" opacity="0.45" style="pointer-events:none;">MIGRATE</text>';
+  html += '<text x="' + ((xScale(0.05) + xScale(0.20))/2) + '" y="' + (yScale(0.32)) + '" text-anchor="middle" font-size="26" font-weight="800" fill="' + TIER_COLORS.Maintain + '" opacity="0.45" style="pointer-events:none;">MAINTAIN</text>';
+
+  const ALWAYS_LABEL = {
+    'L2': { position: 'above', label: 'L2 — Los Angeles' },
+    'V1': { position: 'below', label: 'V1 — Las Vegas' },
+    'L1': { position: 'above', label: 'L1' },
+    'C1': { position: 'above', label: 'C1' },
+    'S6': { position: 'above', label: 'S6' },
+  };
+  CITIES.forEach(c => {
+    if (!chart2ActiveTiers.has(c.tier)) return;
+    const cfg = ALWAYS_LABEL[c.city];
+    if (!cfg) return;
+    const xV = c.pm_share_start, yV = c.combined_yoy;
+    if (xV === null || isNaN(xV) || yV === null || isNaN(yV)) return;
+    const x = xScale(Math.min(xV, xMax)), y = yScale(Math.max(Math.min(yV, yMax), yMin)), r = rScale(c.pm_gb_start);
+    const labelY = cfg.position === 'below' ? y + r + 22 : y - r - 10;
+    html += '<text x="' + x + '" y="' + labelY + '" text-anchor="middle" font-size="17" font-weight="700" fill="#fff" stroke="#fff" stroke-width="4" style="pointer-events:none;">' + cfg.label + '</text>';
+    html += '<text x="' + x + '" y="' + labelY + '" text-anchor="middle" font-size="17" font-weight="700" fill="#222" style="pointer-events:none;">' + cfg.label + '</text>';
+  });
+
+  svg.innerHTML = html;
+  attachTooltip(svg);
+}
+
+function renderTable() {
+  // Show all cities by default; if any chart 2 tier is active, filter; else show all
+  const visible = chart2ActiveTiers.size === 0 ? CITIES : CITIES.filter(c => chart2ActiveTiers.has(c.tier));
+  const sorted = [...visible].sort((a, b) => {
+    let av = a[sortCol], bv = b[sortCol];
+    if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    if (av === null || isNaN(av)) av = -Infinity;
+    if (bv === null || isNaN(bv)) bv = -Infinity;
+    return sortAsc ? av - bv : bv - av;
+  });
+  let html = '';
+  sorted.forEach(c => {
+    html += '<tr class="tier-' + c.tier.toLowerCase() + '">' +
+      '<td>' + c.city + (c.inferred ? ' (' + c.inferred + ')' : '') + '</td>' +
+      '<td>' + c.tier + '</td>' +
+      '<td>' + fmt(c.combined_gb_start, 'moneyM') + '</td>' +
+      '<td>' + fmt(c.pm_share_start, 'pct') + '</td>' +
+      '<td>' + fmt(c.pm_yoy, 'pctsigned') + '</td>' +
+      '<td>' + fmt(c.ue_yoy, 'pctsigned') + '</td>' +
+      '<td>' + fmt(c.combined_yoy, 'pctsigned') + '</td>' +
+      '<td>' + fmt(c.absorption_gb, 'ratio') + '</td>' +
+      '<td>' + fmt(c.pm_aov, 'aov') + '</td>' +
+      '</tr>';
+  });
+  document.getElementById('city-table-body').innerHTML = html;
+  document.querySelectorAll('th[data-col]').forEach(th => {
+    th.classList.remove('sorted', 'sorted-asc');
+    if (th.dataset.col === sortCol) th.classList.add(sortAsc ? 'sorted-asc' : 'sorted');
+  });
+}
+
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = false; }
+    renderTable();
+  });
+});
+
+renderPlaybookCities();
+drawUEPMScatter();
+drawDIMScatter();
+renderTable();
+window.addEventListener('resize', () => { drawUEPMScatter(); drawDIMScatter(); });
+</script>
+
+</body>
+</html>
