@@ -4,6 +4,8 @@
 
 Author: Lizhong (Zoe) Wang · [LinkedIn](https://www.linkedin.com/in/lizhongwang) · May 2026
 
+**📊 [Strategy Deck (PDF)](https://github.com/Pickle1024/Postmates-Uber-Eats-City-Portfolio-Retention-Strategy/blob/main/deliverables/Zoe_Wang_Postmates_Strategy.pdf) · 🗺️ [City Dashboard](https://pickle1024.github.io/Postmates-Uber-Eats-City-Portfolio-Retention-Strategy/deliverables/city_dashboard.html) · 💰 [LTV Calculator](https://pickle1024.github.io/Postmates-Uber-Eats-City-Portfolio-Retention-Strategy/deliverables/ltv_calculator.html)**
+
 ---
 
 ## The strategic thesis
@@ -43,7 +45,7 @@ Scaled to the 14-city Investigate cluster (base case): **$2.7M Year-1 GB defende
 │   ├── raw/                       # Original case dataset (44 anonymized metros × 2 apps × 13 months)
 │   └── processed/                 # Clean long format, city×app aggregates, YoY + tier view
 ├── deliverables/
-│   ├── Zoe_Wang_Postmates_SO_Case_Study.pptx   # 10-slide strategy deck
+│   ├── Zoe_Wang_Postmates_Strategy.pdf          # 10-slide strategy deck (PDF, viewable in-browser)
 │   ├── methodology_summary.docx   # Every metric, model, and assumption documented
 │   ├── city_dashboard.html        # Interactive city explorer (4-quadrant + DIM tier views)
 │   └── ltv_calculator.html        # Interactive user-side + merchant-side LTV model
@@ -71,4 +73,4 @@ Python (pandas, matplotlib, seaborn) · SQL-style aggregation · Interactive HTM
 
 ---
 
-*Interactive deliverables (`city_dashboard.html`, `ltv_calculator.html`) are self-contained — download and open in any browser.*
+*Interactive deliverables (`city_dashboard.html`, `ltv_calculator.html`) are self-contained — view live via the links above, or download and open in any browser.*
